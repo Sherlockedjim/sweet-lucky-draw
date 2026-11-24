@@ -20,7 +20,7 @@ async function asRole(role: 'anon' | 'authenticated', user: string, sql: string,
 beforeAll(async () => {
   db = new PGlite();
   const fixture = await readFile(new URL('./fixtures/database.sql', import.meta.url), 'utf8');
-  migration = await readFile(new URL('../supabase/migrations/202611240001_harden_existing_draw.sql', import.meta.url), 'utf8');
+  migration = await readFile(new URL('../supabase/migrations/20261124094234_secure_existing_hashed_invites.sql', import.meta.url), 'utf8');
   await db.exec(fixture);
   await db.exec(migration);
 }, 30000);
@@ -29,7 +29,7 @@ afterAll(async () => { await db?.close(); });
 describe('proposed migration on supported fixture', () => {
   it('preserves pre-existing rows and administrator', async () => {
     expect((await db.query('select count(*)::int n from public.admin_users')).rows).toEqual([{ n: 1 }]);
-    expect((await db.query("select code from public.invite_codes where code='EXISTING'")).rows).toEqual([{ code: 'EXISTING' }]);
+    expect((await db.query("select code_suffix from public.invite_codes where code_suffix='TING'")).rows).toEqual([{ code_suffix: 'TING' }]);
     expect((await db.query("select sweet_legacy.redeem_and_draw('EXISTING') result")).rows).toEqual([{ result: 'legacy' }]);
   });
   it('reapplies without moving new secure functions into the legacy schema', async () => {
@@ -51,8 +51,8 @@ describe('proposed migration on supported fixture', () => {
       await expect(asRole(role, userId, `select * from public.${table}`)).rejects.toThrow(/permission denied/i);
     }
     await expect(asRole('authenticated', userId, 'insert into public.admin_users(user_id) values($1)', [userId])).rejects.toThrow(/permission denied/i);
-    await expect(asRole('anon', '', 'select code from public.invite_codes')).rejects.toThrow(/permission denied/i);
-    await expect(asRole('authenticated', userId, 'update public.invite_codes set is_used=true')).rejects.toThrow(/permission denied/i);
+    await expect(asRole('anon', '', 'select code_hash from public.invite_codes')).rejects.toThrow(/permission denied/i);
+    await expect(asRole('authenticated', userId, "update public.invite_codes set status='used'")).rejects.toThrow(/permission denied/i);
   });
   it('hides preserved legacy RPCs and helper functions from API roles', async () => {
     await expect(asRole('anon', '', "select sweet_legacy.redeem_and_draw('EXISTING')")).rejects.toThrow(/permission denied/i);
@@ -67,6 +67,17 @@ describe('proposed migration on supported fixture', () => {
       expect(codes.every(r => /^[A-Z0-9]{8}$/.test(r.code))).toBe(true);
     }
   });
+  it('stores only hashes and exposes full codes only in generation responses', async () => {
+    const generated = await asRole('authenticated', adminId, 'select public.admin_generate_codes(1) codes');
+    const code = (generated.rows[0] as { codes: { code: string }[] }).codes[0].code;
+    const stored = await db.query("select to_jsonb(i) row from public.invite_codes i where code_hash=encode(sha256(convert_to($1,'UTF8')),'hex')",[code]);
+    const row = (stored.rows[0] as { row: Record<string, unknown> }).row;
+    expect(row.code_suffix).toBe(code.slice(-4));
+    expect(row).not.toHaveProperty('code');
+    const listed = await asRole('authenticated', adminId, 'select public.admin_list_invites() codes');
+    const rows = (listed.rows[0] as { codes: { code: string }[] }).codes;
+    expect(rows.every(r => /^••••[A-Z0-9]{4}$/.test(r.code))).toBe(true);
+  });
   it('rejects invalid batch counts without inserting rows', async () => {
     const before = (await db.query('select count(*)::int n from public.invite_codes')).rows;
     for (const count of [0, -1, 501, null]) await expect(asRole('authenticated', adminId, 'select public.admin_generate_codes($1)', [count])).rejects.toThrow('COUNT_OUT_OF_RANGE');
@@ -79,20 +90,20 @@ describe('proposed migration on supported fixture', () => {
     await expect(asRole('anon', '', "select public.redeem_and_draw('EXISTING')")).rejects.toThrow('CODE_USED');
     const recovered = await asRole('anon', '', "select public.get_draw_result('EXISTING') receipt");
     expect(recovered.rows[0]).toEqual(result.rows[0]);
-    const count = await db.query("select count(*)::int n from public.draw_records d join public.invite_codes i on i.id=d.invite_id where i.code='EXISTING'");
+    const count = await db.query("select count(*)::int n from public.draw_records d join public.invite_codes i on i.id=d.invite_id where i.code_suffix='TING'");
     expect(count.rows).toEqual([{ n: 1 }]);
   });
   it('rejects incorrect and malformed invitations', async () => {
     for (const code of ['WRONG123', 'bad', 'abcd1234', 'ABCD!123', '', null]) await expect(asRole('anon', '', 'select public.redeem_and_draw($1)', [code])).rejects.toThrow('INVALID_CODE');
   });
   it('rolls back invitation consumption when record insertion fails', async () => {
-    await db.exec("insert into public.invite_codes(code) values('ROLLBACK'); create function public.test_block_draw() returns trigger language plpgsql as $$ begin raise exception 'SIMULATED_RECORD_FAILURE'; end $$; create trigger test_block_draw before insert on public.draw_records for each row execute function public.test_block_draw();");
+    await db.exec("insert into public.invite_codes(code_hash,code_suffix) values(encode(sha256(convert_to('ROLLBACK','UTF8')),'hex'),'BACK'); create function public.test_block_draw() returns trigger language plpgsql as $$ begin raise exception 'SIMULATED_RECORD_FAILURE'; end $$; create trigger test_block_draw before insert on public.draw_records for each row execute function public.test_block_draw();");
     await expect(asRole('anon', '', "select public.redeem_and_draw('ROLLBACK')")).rejects.toThrow('SIMULATED_RECORD_FAILURE');
-    expect((await db.query("select is_used,used_at from public.invite_codes where code='ROLLBACK'")).rows).toEqual([{ is_used: false, used_at: null }]);
+    expect((await db.query("select status,redeemed_at from public.invite_codes where code_suffix='BACK'")).rows).toEqual([{ status: 'unused', redeemed_at: null }]);
     await db.exec('drop trigger test_block_draw on public.draw_records; drop function public.test_block_draw();');
   });
   it('enforces a unique draw per invitation even outside the RPC', async () => {
-    await expect(db.exec("insert into public.draw_records(invite_id,prize) select id,'蛋糕' from public.invite_codes where code='EXISTING'")).rejects.toThrow(/unique constraint/i);
+    await expect(db.exec("insert into public.draw_records(invite_id,prize) select id,'cake' from public.invite_codes where code_suffix='TING'")).rejects.toThrow(/unique constraint/i);
   });
   it('lists exact totals beyond the usual PostgREST 1000-row limit', async () => {
     await asRole('authenticated', adminId, 'select public.admin_generate_codes(500)');

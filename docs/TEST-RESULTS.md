@@ -4,16 +4,16 @@
 
 ## 自动化测试
 
-命令：`npm test`。当前 4 个文件、48 项通过。
+命令：`npm test`。当前 4 个文件、50 项通过。
 
 | 测试文件 | 数量 | 实际范围 |
 | --- | --- | --- |
 | tests/domain.test.ts | 20 | 格式/非法字符、公开 key 拒绝私密 key、服务器结果解析、随机展示、CSV 转义 |
 | tests/draw.test.tsx | 7 | 模拟接口的正确/错误/重复邀请码、快速双击、超时后恢复、刷新恢复、离线恢复 |
-| tests/admin.test.tsx | 6 | 模拟 Auth 与 RPC 的管理员访问、普通用户拒绝、退出清理、批量结果保留、搜索 |
-| tests/database.test.ts | 15 | 独立 PGlite PostgreSQL 上实际执行迁移、角色权限、列权限、1/500 生成、重复拒绝、事务回滚、唯一索引、结构不匹配回滚 |
+| tests/admin.test.tsx | 7 | 模拟 Auth 与 RPC 的管理员访问、普通用户拒绝、退出清理、批量结果保留、搜索 |
+| tests/database.test.ts | 16 | 独立 PGlite PostgreSQL 上实际执行迁移、角色权限、列权限、1/500 生成、重复拒绝、事务回滚、唯一索引、结构不匹配回滚 |
 
-PGlite 是单连接 PostgreSQL 测试环境，不连接远程项目；这里**没有验证真实多设备并发或真实 Supabase Auth 登录**。
+PGlite 是单连接 PostgreSQL 测试环境，不连接远程项目；这里**没有验证真实多设备并发或真实 Supabase Auth 登录**。数据库 fixture 已按真实哈希表结构适配，验证完整邀请码不会写入数据库；后台测试包含完整邀请码精确查询结果。
 
 ## 浏览器检查
 
@@ -43,4 +43,4 @@ PGlite 是单连接 PostgreSQL 测试环境，不连接远程项目；这里**�
 
 生产构建已成功。依赖已更新，npm 安全审计为 0 个已知漏洞。源码和构建文件通过凭据扫描。本地 Git 仓库已初始化。
 
-GitHub / Supabase 插件已安装，用户已完成连接操作，但本轮聊天尚未加载两者的接口。本机 CLI 无登录凭据。GitHub 仓库尚未创建/推送，GitHub Actions 尚未远程运行，Pages 尚未公网发布。Supabase 完整审计与迁移均未执行。需重新载入聊天并加载插件接口后继续；不提供虚构的公网地址。
+GitHub / Supabase 官方 CLI 均已登录。真实 Supabase 审计完成；GitHub 仓库已创建，两个公开构建变量已配置。生产迁移首次执行被自动审批审查拒绝，等待用户明确批准；尚未推送源码触发发布，Pages 尚未上线。真实接口和账号验收尚未执行。

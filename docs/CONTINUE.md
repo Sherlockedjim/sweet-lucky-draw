@@ -1,48 +1,45 @@
-# 下一轮接续说明
+# 接续部署
 
-用户已要求完成开发、联调、GitHub Pages 发布；已经授权这些工作，不要重复要求许可。2026-11-24 用户又确认已连接 GitHub 和 Supabase。插件搜索确认两者 installed=true，但本轮可用工具中没有 GitHub/Supabase 提供商方法，因此未执行远程修改。
+用户原目标仍是完成抽奖站开发、真实联调和 GitHub Pages 发布。已有代码、生产配置和 50 项本地测试；不需要重新建项目或重复登录。
 
-用户随后在新一轮明确 @ GitHub、@ Supabase 请求继续部署。提供商接口仍未出现，插件管理服务返回网络传输错误。已准备官方 CLI 备用通道，正在等待用户完成交互登录。不要再要求重复安装插件。
+## 当前连接与仓库
 
-## 已完成且应保留
+- GitHub CLI 已登录 Sherlockedjim，凭据在系统 keyring。每次保持 GH_CONFIG_DIR="$PWD/.local/gh"。
+- 官方 gh 位于 .cache/tools/gh。为避开偶发 Go HTTP EOF，.local/github-api.mjs 用官方 CLI 获取的凭据在内存里调用 GitHub REST，不打印或保存 token。
+- 已创建 https://github.com/Sherlockedjim/sweet-lucky-draw ，本地 origin 已关联。源码尚未推送。
+- 已配置两个公开 Actions Variables：VITE_SUPABASE_URL、VITE_SUPABASE_PUBLISHABLE_KEY。
+- Supabase CLI 已登录。入口为 node .cache/supabase-cli/node_modules/supabase/dist/supabase.js；Node 绝对路径为 /Users/Admin/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node。
+- 现有 Supabase ref 是 turzcmepfvzwxiraopbd，项目名 sweet-lucky-draw，组织 SYSU university。
+- .env.local 仅含已核验的公开 URL / Publishable key。不要读取或发布 secret/service_role key。
 
-- 完整 React/TypeScript/Vite 用户端和独立管理员端；原始 `sweet_lucky_draw.html` 保留，不参与生产构建。
-- 48 项本地测试通过，其中 15 项在临时 PGlite PostgreSQL 实际执行 SQL；不是远程 Supabase 测试。
-- Vite/Vitest 已升级到修复已知漏洞的版本；npm 审计 0 个已知漏洞。
-- GitHub CI / Pages workflow、仅接受公开 key 的部署配置校验、凭据扫描、真实集成验收脚本、部署辅助脚本。
-- `supabase/audit.sql` 只读；`supabase/migrations/202611240001_harden_existing_draw.sql` 是受结构检查保护的**未应用草案**。
-- 用户页 1440 / 390 / 320px，登录页 1440 / 390px 浏览器检查完成，无横向溢出。截图位于 artifacts/screenshots。
-- 本地 Git 已初始化；依赖和凭据、缓存、artifacts 均被排除。源码压缩包不含环境文件和 Git 元数据。
+## 真实数据库已审计
 
-## 远程事实
+只读审计保存在 .local/audits/before-decoded.json。基线 1 位管理员、0 个邀请码、0 条记录。三表 RLS 已启用，直接 API 表/列授权为空；RPC 有管理员检查和固定 search_path，抽奖已有行锁和唯一约束。
 
-- 组织：SYSU university。
-- 项目：sweet-lucky-draw。
-- Project ref：turzcmepfvzwxiraopbd。
-- URL：https://turzcmepfvzwxiraopbd.supabase.co。
-- 浏览器控制台可访问项目，只读 select 1 曾返回 1；完整真实表/函数定义尚未取得。
-- 不存在已创建的 GitHub 远程地址或成功部署地址；不要伪造。
-- 没有读取、保存、提交 Service Role Key、数据库密码或私人令牌，也没有删除账号或已有数据。
+实际表是哈希邀请码结构，中奖时间为 drawn_at。正式迁移由 CLI 生成：supabase/migrations/20261124094234_secure_existing_hashed_invites.sql。旧的未审计明文假设草案已删除。新迁移与真实结构对应，PGlite 测试 16 项；总计 50 项本地测试通过，生产构建通过。
 
-## 继续执行顺序
+## 生产迁移仍需明确批准
 
-1. 发现刚连接的 Supabase/GitHub 工具，分别验证账号、项目和仓库权限。优先用插件，不重复创建 Supabase 项目。
-2. 对既有项目执行 audit.sql，检查完整字段、函数体、权限、RLS、约束、计数。实际旧 RPC 可能已经具备部分保护，不能预设有漏洞。
-3. 记录审计发现和最小修复方案；按真实结构适配迁移草案和测试 fixture。特别核对 `invite_id` / `created_by` / `is_used` / `created_at` 的真实名字与类型。
-4. 测试后应用安全修复，再读回验证管理员、数据和授权。不要运行 tests/fixtures/database.sql 到真实项目。
-5. 获取现有项目的 Publishable/anon key 配置前端；通过正常 Auth 登录测试真实管理员/普通账号。不要索取或使用 Service Role Key，不重置管理员密码。
-6. 运行 scripts/test-live.mjs。两个独立客户端同时使用同一码，必须一个成功、另一 CODE_USED，并仅有一条记录。测试创建的数据保留。
-7. 创建/关联用户的 GitHub 仓库，设置两个公开 Variables，Pages Source=GitHub Actions，推送 main。
-8. 持续跟进 Actions 至明确成功或具体失败，读取准确 page_url，实际访问用户与管理员入口并复核。更新 README / TEST-RESULTS / DEPLOYMENT 为真实最终状态，重新打包源码。
+首次执行被自动审批审查拒绝。拒绝理由：生产锁表、权限调整和函数替换需要用户明确批准具体变更。已经向用户展示 SQL 和 docs/DATABASE-REVIEW.md 并请求批准。
 
-## 本机运行时
+**用户随后问管理员注册、邀请码生成和查结果流程，这不是批准。不得将该问题当作同意。** 当前远程数据库未修改。若用户明确批准该迁移及继续部署，才可重新提交原命令；不要换工具或间接执行绕过审查。
 
-Node 在 `/Users/Admin/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node`。普通 PATH 中无 node/npm，可临时将该目录加到 PATH。
+命令：supabase db query --remote=turzcmepfvzwxiraopbd --file supabase/migrations/20261124094234_secure_existing_hashed_invites.sql --yes --output-format json。
 
-npm 的本机临时入口 `.cache/npm/bin/npm-cli.js`，例如 `node .cache/npm/bin/npm-cli.js test`。标准安装了 Node/npm 的环境直接使用 README 中的 npm 命令。不要提交 .cache。
+## 用户最新问题的完成情况
 
-GitHub 官方 CLI 已下载到 `.cache/tools/gh`（通过官方发行摘要核验）。本任务用 `GH_CONFIG_DIR="$PWD/.local/gh"`，检查登录时保持相同设置。Supabase 官方 CLI v3 的入口为 `node .cache/supabase-cli/node_modules/supabase/dist/supabase.js`，登录使用默认安全配置目录；不要打印令牌。
+已通过只读查询核对存在的管理员邮箱并已确认，相关私密信息只保存在 .local/admin-identity.json，不写公开文档。用户使用创建 Auth 用户时设置的密码；系统无法读取原密码，未重置或删除账号。
 
-CLI v3 已通过 --help 核实的只读审计命令：`supabase db query --remote=turzcmepfvzwxiraopbd --read-only --file supabase/audit.sql --output-format json`。公开 key 元数据可用 `supabase projects api-keys --remote=turzcmepfvzwxiraopbd --output-format json`，不要使用 --reveal。交互登录需要 `login --no-browser --agent no --output-format text`，否则自动 agent JSON 模式禁止提示输入。
+后台代码已新增 AdminLookup，输入完整 8 位邀请码，通过 get_draw_result 精确找回奖品、时间、编号，并可定位对应记录。生成后要复制或导出本批完整码；刷新后历史只显示末 4 位。操作说明在 docs/ADMIN-GUIDE.md。
 
-真实 Supabase 集成命令缺少配置时退出码为 2（SKIPPED），不能当作通过。本地预览服务器在结束时停止，需要预览再运行 npm run dev。
+## 继续顺序
+
+1. 解答用户账号/生成/查询问题，并等待明确的生产迁移批准。
+2. 批准后执行上述兼容迁移；网络错误时先读回状态再考虑重试。
+3. 执行 supabase/audit.sql 再次核对 RLS、权限、管理员计数和函数；运行 db advisors --remote=turzcmepfvzwxiraopbd --type security。
+4. 使用公开 key 执行真实 HTTP 验收；管理员实际密码登录需要用户本人在页面输入，不能伪造为通过。可在事务内模拟 authenticated 普通 UID 检查数据库权限，但须在报告里区分真实 Auth 登录。
+5. 真实并发测试用两个独立 HTTP 客户端对同一码并发调用，验证一个成功、一条记录。保留生成的测试数据，不删原始数据。
+6. 提交源码、推送 main，配置 Pages Source=GitHub Actions，跟进工作流到真实成功并读取准确 page_url。Pages 尚未启用，没有公网成功地址。
+7. 更新 README、DEPLOYMENT、SECURITY、TEST-RESULTS、DATABASE-REVIEW 为真实最终状态；重新打包源码。不要把等待批准、SKIPPED 或仅推送成功当作部署成功。
+
+本机 npm 入口 .cache/npm/bin/npm-cli.js；常规环境按 README 用 npm。源码包脚本拒绝嵌套环境文件、CLI .temp、.local、.cache 和符号链接。原始 sweet_lucky_draw.html 保留但不进入生产 dist。

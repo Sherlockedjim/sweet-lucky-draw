@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ getSession: vi.fn(), getUser: vi.fn(), signIn: vi.fn(), signOut: vi.fn(), listInvites: vi.fn(), listDraws: vi.fn(), generate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ getSession: vi.fn(), getUser: vi.fn(), signIn: vi.fn(), signOut: vi.fn(), listInvites: vi.fn(), listDraws: vi.fn(), generate: vi.fn(), recover: vi.fn() }));
 vi.mock('../src/lib/supabase', () => ({ configured: true, supabase: { auth: { getSession: mocks.getSession, getUser: mocks.getUser, signInWithPassword: mocks.signIn, signOut: mocks.signOut, onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }) } } }));
-vi.mock('../src/lib/api', () => ({ listInvites: mocks.listInvites, listDraws: mocks.listDraws, generateCodes: mocks.generate }));
+vi.mock('../src/lib/api', () => ({ listInvites: mocks.listInvites, listDraws: mocks.listDraws, generateCodes: mocks.generate, recover: mocks.recover }));
 import AdminPage from '../src/pages/AdminPage';
 
 const invite = { id: 'invite-id', code: 'ABCD1234', created_at: '2026-11-24T08:00:00Z', used_at: null, is_used: false };
@@ -15,6 +15,7 @@ beforeEach(() => {
   mocks.signOut.mockResolvedValue({ error: null });
   mocks.listInvites.mockResolvedValue([invite]);
   mocks.listDraws.mockResolvedValue([]);
+  mocks.recover.mockResolvedValue(null);
 });
 
 async function login() {
@@ -70,5 +71,14 @@ describe('admin session and permissions', () => {
     expect(screen.getByText('ABCD1234')).toBeVisible();
     fireEvent.change(screen.getByLabelText('搜索邀请码或奖品'), { target: { value: 'other' } });
     await waitFor(() => expect(screen.queryByText('ABCD1234')).not.toBeInTheDocument());
+  });
+  it('looks up the exact saved result using a full invitation', async () => {
+    mocks.recover.mockResolvedValue({ id: 'saved-record-id', prize: '奶茶', created_at: '2026-11-24T08:00:00Z' });
+    render(<AdminPage/>); await login(); await screen.findByText('ABCD1234');
+    fireEvent.change(screen.getByLabelText('完整邀请码'), { target: { value: 'abcd1234' } });
+    fireEvent.click(screen.getByRole('button', { name: '查询结果' }));
+    expect(await screen.findByText('saved-record-id')).toBeVisible();
+    expect(mocks.recover).toHaveBeenCalledWith('ABCD1234');
+    expect(screen.getByRole('region', { name: '该邀请码的中奖结果' })).toHaveTextContent('奶茶');
   });
 });

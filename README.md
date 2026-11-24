@@ -2,9 +2,11 @@
 
 浅鹅黄色的甜品盲盒抽奖屋。React + TypeScript + Vite，Supabase Auth / PostgreSQL RPC，GitHub Pages 静态部署。
 
-**交付状态（2026-11-24）：本地前后台、测试、迁移草案和 Actions 已完成；真实数据库审计、联调与公网部署尚未完成。**
+**当前状态（2026-11-24）：前后台、50 项本地测试和构建已完成；真实数据库已审计，GitHub 仓库已创建。生产迁移等待用户明确批准，联调和公网部署尚未完成。**
 
-已在浏览器确认 `SYSU university / sweet-lucky-draw` 项目存在，项目 URL 为 `https://turzcmepfvzwxiraopbd.supabase.co`。两个插件已安装，用户已完成连接操作；当前聊天仍未加载提供商接口，尚不能通过 API 核验授权。终端没有 GitHub/Supabase CLI 登录信息。浏览器的只读连接探测成功，但未取得完整表/函数审计结果。没有对远程数据库执行迁移，没有删除管理员或已有数据。
+现有项目 `SYSU university / sweet-lucky-draw` 已通过官方 CLI 只读审计：1 位管理员、0 个邀请码、0 条中奖记录。GitHub 仓库是 https://github.com/Sherlockedjim/sweet-lucky-draw ，源码待迁移获批后推送并发布。没有删除用户或已有数据。
+
+审计确认原有 RLS、管理员校验、行锁、唯一约束均已具备。兼容迁移保留哈希存储，补充结果恢复和完整列表返回；详见 `docs/DATABASE-REVIEW.md`。
 
 ## 本地运行
 
@@ -36,7 +38,7 @@ npm run dev
 
 1. 在**现有项目** SQL Editor 的新查询中运行 `supabase/audit.sql`。该文件只读，不返回密码、JWT 或邀请码值。
 2. 按 `docs/SECURITY.md` 审查真实结构、函数、所有 RLS 策略及权限。当前不能断言原函数有漏洞。
-3. 对比 `supabase/migrations/202611240001_harden_existing_draw.sql` 的结构预期，必要时按真实结果调整。草案不是现有数据库的结构声明。
+3. 对比 `supabase/migrations/20261124094234_secure_existing_hashed_invites.sql` 的结构预期，必要时按真实结果调整。草案不是现有数据库的结构声明。
 4. 完成审查后才在现有项目应用迁移。不要执行测试 fixture，不要重新初始化项目，不要盲目 `db push`。
 5. 按 `docs/DEPLOYMENT.md` 配置公开连接并执行真实接口验收。
 
@@ -47,8 +49,8 @@ npm run dev
 | `redeem_and_draw(p_code text)` | anon / authenticated | `{ id, prize, created_at }` |
 | `get_draw_result(p_code text)` | anon / authenticated | 相同结果，尚未抽取则 `null` |
 | `admin_generate_codes(p_count integer)` | admin_users 内的 authenticated | 邀请码对象数组 |
-| `admin_list_invites()` | 同上 | `{ id, code, is_used, created_at, used_at }[]` |
-| `admin_list_draws()` | 同上 | `{ id, code, prize, created_at }[]` |
+| `admin_list_invites()` | 同上 | `{ id, code, is_used, created_at, used_at }[]`（code 为隐藏前 4 位的历史号码） |
+| `admin_list_draws()` | 同上 | `{ id, code, prize, created_at }[]`（code 为隐藏前 4 位的历史号码） |
 
 ## 验证与部署
 
@@ -64,4 +66,4 @@ npm run test:db
 
 GitHub Pages 部署只上传 `dist/`。生产工作流不会自动执行数据库迁移。仓库 Variables 需要设置 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`；仓库 Settings → Pages → Source 选择 **GitHub Actions**。详见 `docs/DEPLOYMENT.md`。
 
-源码：`src/`；数据库：`supabase/`；验收状态：`docs/TEST-RESULTS.md`；权限方案：`docs/SECURITY.md`。源码包可用 `node scripts/package-source.mjs` 生成，明确排除环境文件、缓存和 Git 元数据。
+后台使用：`docs/ADMIN-GUIDE.md`；源码：`src/`；数据库：`supabase/`；验收状态：`docs/TEST-RESULTS.md`；权限方案：`docs/SECURITY.md`。源码包可用 `node scripts/package-source.mjs` 生成，明确排除环境文件、缓存和 Git 元数据。

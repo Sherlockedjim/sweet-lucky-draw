@@ -2,6 +2,8 @@
 
 用户已要求完成开发、联调、GitHub Pages 发布；已经授权这些工作，不要重复要求许可。2026-11-24 用户又确认已连接 GitHub 和 Supabase。插件搜索确认两者 installed=true，但本轮可用工具中没有 GitHub/Supabase 提供商方法，因此未执行远程修改。
 
+用户随后在新一轮明确 @ GitHub、@ Supabase 请求继续部署。提供商接口仍未出现，插件管理服务返回网络传输错误。已准备官方 CLI 备用通道，正在等待用户完成交互登录。不要再要求重复安装插件。
+
 ## 已完成且应保留
 
 - 完整 React/TypeScript/Vite 用户端和独立管理员端；原始 `sweet_lucky_draw.html` 保留，不参与生产构建。
@@ -38,5 +40,9 @@
 Node 在 `/Users/Admin/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node`。普通 PATH 中无 node/npm，可临时将该目录加到 PATH。
 
 npm 的本机临时入口 `.cache/npm/bin/npm-cli.js`，例如 `node .cache/npm/bin/npm-cli.js test`。标准安装了 Node/npm 的环境直接使用 README 中的 npm 命令。不要提交 .cache。
+
+GitHub 官方 CLI 已下载到 `.cache/tools/gh`（通过官方发行摘要核验）。本任务用 `GH_CONFIG_DIR="$PWD/.local/gh"`，检查登录时保持相同设置。Supabase 官方 CLI v3 的入口为 `node .cache/supabase-cli/node_modules/supabase/dist/supabase.js`，登录使用默认安全配置目录；不要打印令牌。
+
+CLI v3 已通过 --help 核实的只读审计命令：`supabase db query --remote=turzcmepfvzwxiraopbd --read-only --file supabase/audit.sql --output-format json`。公开 key 元数据可用 `supabase projects api-keys --remote=turzcmepfvzwxiraopbd --output-format json`，不要使用 --reveal。交互登录需要 `login --no-browser --agent no --output-format text`，否则自动 agent JSON 模式禁止提示输入。
 
 真实 Supabase 集成命令缺少配置时退出码为 2（SKIPPED），不能当作通过。本地预览服务器在结束时停止，需要预览再运行 npm run dev。

@@ -5,6 +5,8 @@ dist/
 !.env.example
 .cache/
 .local/
+supabase/.temp/
+supabase/.branches/
 coverage/
 *.log
 *.tsbuildinfo

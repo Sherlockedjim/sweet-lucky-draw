@@ -75,6 +75,12 @@ node --env-file=.env.local scripts/deploy-github.mjs sweet-lucky-draw
 
 ## Supabase Auth 配置
 
-本项目仅使用已有管理员账号的邮箱/密码登录，不开放前台注册，也不会重建已有管理员。Auth 的 Site URL 应设置为最终 Pages URL；如果以后使用密码重置、邮件链接等功能，再将实际回调 URL 加入允许列表。当前密码登录不依赖 OAuth 回调。
+本项目使用已有管理员账号，不开放前台注册。登录页提供邮箱找回密码；重置后仍使用原账号，管理员权限继续由数据库核验。
+
+已于 2026-11-25 将 Auth Site URL 从默认 localhost 更新为正式网站，并增加精确回调 `https://sherlockedjim.github.io/sweet-lucky-draw/?recovery=1`。配置见 `supabase/config.toml`，CLI v3 仅推送其中显式声明的这两项 Auth 属性。读回差异确认这两项已一致，其余认证属性保留。
+
+找回入口是 `#/admin/reset-password`。重置邮件回到现有 Pages 首页的查询参数入口，SDK 只处理恢复回调；有效会话经 Auth 验证后展示新密码表单。成功后清空密码输入并退出该页面会话，要求重新使用新密码登录。密码只由账号所有者在页面提交；真实邮件送达和密码保存待本人验收。
+
+Supabase 默认 SMTP 仅向项目组织成员邮箱发信，并有邮件速率限制。若真实邮箱不在允许范围，需要由项目所有者配置自有 SMTP；不要通过关闭邮箱验证解决发送问题。[Supabase SMTP 文档](https://supabase.com/docs/guides/auth/auth-smtp)。
 
 如果普通用户能成功调用管理 RPC、一个邀请码出现两条记录，或者审计权限结果与方案不一致，应先修复并复测，再发布活动。不要以隐藏管理入口替代数据库权限。

@@ -2,7 +2,7 @@
 
 浅鹅黄色的甜品盲盒抽奖屋。React + TypeScript + Vite，Supabase Auth / PostgreSQL RPC，GitHub Pages 静态部署。
 
-**当前状态（2026-11-25）：已部署 GitHub Pages，首页及静态资源实际返回 200，用户页和管理员登录页已在浏览器打开。50 项测试、构建和凭据扫描通过；生产迁移已获明确批准并应用，真实邀请码、并发及权限联调通过。管理员原密码登录仍待账号所有者本人确认。**
+**当前状态（2026-11-25）：已部署 GitHub Pages，首页及静态资源实际返回 200，用户页和管理员登录页已在浏览器打开。60 项测试、构建和凭据扫描通过；生产迁移已获明确批准并应用，真实邀请码、并发及权限联调通过。已增加邮箱找回密码，账号所有者需在页面完成密码重置和真实登录验收。**
 
 用户网址：[甜甜抽奖屋](https://sherlockedjim.github.io/sweet-lucky-draw/) · 管理员网址：[管理后台](https://sherlockedjim.github.io/sweet-lucky-draw/#/admin) · [GitHub 源码](https://github.com/Sherlockedjim/sweet-lucky-draw)。
 
@@ -32,6 +32,7 @@ npm run dev
 - 同一邀请码由行锁和唯一索引保护；核销和中奖记录写入在同一事务中。
 - 请求超时后先查已有结果，刷新后也从数据库恢复，避免自动重复提交。
 - 独立邮箱/密码管理员登录；同时经过 Auth 身份验证和数据库管理员名单校验。
+- 登录页提供“忘记密码”，邮箱验证后可设置原账号的新密码；回调兼容 GitHub Pages，成功后重新登录。
 - 1–500 个邀请码批量生成、复制、CSV 导出；状态、总数、时间、中奖记录、搜索、筛选、分页。
 - 手机/电脑响应式布局、键盘焦点管理、减少动画偏好、屏幕阅读器状态提示。
 - 前端只接受 Publishable/anon key；构建部署检查拒绝 secret/service-role key。

@@ -1,0 +1,6 @@
+project_id = "sweet-lucky-draw"
+
+# Only these declared Auth properties are pushed by CLI v3.
+[auth]
+site_url = "https://sherlockedjim.github.io/sweet-lucky-draw/"
+additional_redirect_urls = ["https://sherlockedjim.github.io/sweet-lucky-draw/?recovery=1"]

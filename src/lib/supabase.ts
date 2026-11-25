@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { acceptsRecoveryCallback, isRecoveryReturn } from './passwordRecovery';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -12,6 +13,8 @@ export function isPublicKey(value: string): boolean {
 }
 
 export const configured = !!url && /^https:\/\/[a-z0-9]+\.supabase\.co$/.test(url) && !!key && isPublicKey(key);
+// Capture the landing mode before the SDK consumes and removes the recovery fragment.
+export const recoveryReturnExpected = typeof window !== 'undefined' && isRecoveryReturn(new URL(window.location.href));
 // Fall back to tab memory when browser privacy settings disable sessionStorage.
 const memory = new Map<string, string>();
 const sessionStore = {
@@ -20,7 +23,7 @@ const sessionStore = {
   removeItem(name: string) { try { sessionStorage.removeItem(name); } catch { memory.delete(name); } },
 };
 export const supabase = configured ? createClient(url!, key!, {
-  auth: { storage: sessionStore, storageKey: `sweet-admin-${new URL(url!).hostname.split('.')[0]}`, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+  auth: { storage: sessionStore, storageKey: `sweet-admin-${new URL(url!).hostname.split('.')[0]}`, persistSession: true, autoRefreshToken: true, detectSessionInUrl: acceptsRecoveryCallback },
 }) : null;
 
 export async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<T> {

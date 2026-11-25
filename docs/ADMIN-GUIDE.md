@@ -8,6 +8,16 @@
 
 只有 UUID 位于 public.admin_users 的 Auth 用户可以进入后台。以后新增管理员时，先在现有项目的 Authentication → Users 创建 Auth 用户，再将该用户 UUID 加入 admin_users；已有管理员无需重复注册。
 
+## 忘记密码
+
+1. 打开[找回密码](https://sherlockedjim.github.io/sweet-lucky-draw/#/admin/reset-password)，输入原管理员邮箱，点击“发送重置邮件”。
+2. 到邮箱收件箱或垃圾邮件中打开最新的重置邮件；在网站页面输入并确认新密码，点击“保存新密码”。
+3. 返回管理员登录页，用原邮箱和新密码登录。账号 UUID、管理员身份和活动记录保留。
+
+密码至少 8 位，并须满足 Supabase 项目当前的密码规则。密码直接填在网页里，不要发到聊天或提交仓库。重置链接过期时重新申请邮件。页面返回成功提示只表示请求已受理，邮件送达仍需收件人检查。
+
+若提示项目暂不能向此邮箱发送邮件，由项目所有者检查 Supabase → Authentication → Emails → SMTP Settings。Supabase 默认邮件服务通常只允许项目组织成员邮箱；其他地址需配置自有 SMTP。[官方邮件说明](https://supabase.com/docs/guides/auth/auth-smtp)。
+
 ## 生成和分发邀请码
 
 1. 在后台点击“生成邀请码”。

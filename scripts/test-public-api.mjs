@@ -49,6 +49,15 @@ for(const code of ['BAD','abcd1234','ABCD!123']) {
     assert(error && /INVALID_CODE/.test(error.message));
   });
 }
+// Supply only a well-formed code already verified absent in a read-only database query.
+// Do not retry this call: a valid-code redemption can commit even when transport fails.
+if(process.env.TEST_INVALID_CODE) {
+  assert(/^[A-Z0-9]{8}$/.test(process.env.TEST_INVALID_CODE));
+  await check('well-formed nonexistent invitation rejected',async()=>{
+    const {error}=await rpc(first,'redeem_and_draw',{p_code:process.env.TEST_INVALID_CODE});
+    assert(error && /INVALID_CODE/.test(error.message));
+  });
+}
 if(seeds) {
   let receipt;
   await check('correct invitation returns a saved server award',async()=>{

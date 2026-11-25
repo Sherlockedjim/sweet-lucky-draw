@@ -2,9 +2,11 @@
 
 浅鹅黄色的甜品盲盒抽奖屋。React + TypeScript + Vite，Supabase Auth / PostgreSQL RPC，GitHub Pages 静态部署。
 
-**当前状态（2026-11-25）：前后台、50 项本地测试和构建已完成；真实数据库已审计，GitHub 仓库已创建。生产迁移已于 2026-11-25 获明确批准并应用，读回验证通过；真实联调和公网发布正在进行。**
+**当前状态（2026-11-25）：已部署 GitHub Pages，首页及静态资源实际返回 200，用户页和管理员登录页已在浏览器打开。50 项测试、构建和凭据扫描通过；生产迁移已获明确批准并应用，真实邀请码、并发及权限联调通过。管理员原密码登录仍待账号所有者本人确认。**
 
-现有项目 `SYSU university / sweet-lucky-draw` 已通过官方 CLI 只读审计：1 位管理员、0 个邀请码、0 条中奖记录。GitHub 仓库是 https://github.com/Sherlockedjim/sweet-lucky-draw ，生产迁移已应用，正在推送和发布。没有删除用户或已有数据。
+用户网址：[甜甜抽奖屋](https://sherlockedjim.github.io/sweet-lucky-draw/) · 管理员网址：[管理后台](https://sherlockedjim.github.io/sweet-lucky-draw/#/admin) · [GitHub 源码](https://github.com/Sherlockedjim/sweet-lucky-draw)。
+
+沿用现有项目 `SYSU university / sweet-lucky-draw`。迁移前为 1 位管理员、0 个邀请码、0 条中奖记录；联调后保留原管理员和 2 个已使用的测试邀请码、2 条中奖记录。没有删除用户或已有数据。
 
 审计确认原有 RLS、管理员校验、行锁、唯一约束均已具备。兼容迁移保留哈希存储，补充结果恢复和完整列表返回；详见 `docs/DATABASE-REVIEW.md`。
 
@@ -34,15 +36,15 @@ npm run dev
 - 手机/电脑响应式布局、键盘焦点管理、减少动画偏好、屏幕阅读器状态提示。
 - 前端只接受 Publishable/anon key；构建部署检查拒绝 secret/service-role key。
 
-## 数据库：先审计，再适配
+## 数据库审查与迁移
 
 1. 在**现有项目** SQL Editor 的新查询中运行 `supabase/audit.sql`。该文件只读，不返回密码、JWT 或邀请码值。
-2. 按 `docs/SECURITY.md` 审查真实结构、函数、所有 RLS 策略及权限。当前不能断言原函数有漏洞。
-3. 对比 `supabase/migrations/20261124094234_secure_existing_hashed_invites.sql` 的结构预期，必要时按真实结果调整。草案不是现有数据库的结构声明。
-4. 完成审查后才在现有项目应用迁移。不要执行测试 fixture，不要重新初始化项目，不要盲目 `db push`。
+2. 按 `docs/SECURITY.md` 审查真实结构、函数、所有 RLS 策略及权限。原函数的管理员校验、行锁和唯一约束已核验。
+3. 兼容迁移是 `supabase/migrations/20261124094234_secure_existing_hashed_invites.sql`，已按真实哈希字段适配。
+4. 本项目已于 2026-11-25 应用迁移并读回验证，无需重复执行。不要执行测试 fixture 或重新初始化项目。
 5. 按 `docs/DEPLOYMENT.md` 配置公开连接并执行真实接口验收。
 
-迁移会保留原表、数据和管理员；将四个旧 RPC 移至禁用 API 访问的 `sweet_legacy` schema 后，安装相同 RPC 名称的安全实现。RPC 的返回格式统一为 JSONB。既有其他调用端需要一起核对。
+迁移保留原表、数据和管理员；四个旧 RPC 保存在禁用 API 访问的 `sweet_legacy` schema，新实现的返回格式统一为 JSONB。既有其他调用端需要一起核对。
 
 | RPC | 调用方 | 返回 |
 | --- | --- | --- |

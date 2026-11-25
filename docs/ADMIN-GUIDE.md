@@ -1,10 +1,10 @@
 # 管理员使用说明
 
-本项目已有管理员 Auth 用户及 admin_users 成员。当前仍需生产迁移获批和网站发布，以下流程将在正式后台可用。
+本项目已有管理员 Auth 用户及 admin_users 成员，生产兼容迁移已于 2026-11-25 应用。已有管理员直接使用原来的邮箱和密码登录，无需再次注册。
 
 ## 登录
 
-进入网站的 `#/admin`，使用创建 Supabase Auth 用户时设置的邮箱和密码登录。部署授权用的一次性验证码不作为网站密码。系统不能读取原密码。
+进入[正式管理后台](https://sherlockedjim.github.io/sweet-lucky-draw/#/admin)，使用创建 Supabase Auth 用户时设置的邮箱和密码登录。部署授权用的一次性验证码不作为网站密码。系统不能读取原密码。
 
 只有 UUID 位于 public.admin_users 的 Auth 用户可以进入后台。以后新增管理员时，先在现有项目的 Authentication → Users 创建 Auth 用户，再将该用户 UUID 加入 admin_users；已有管理员无需重复注册。
 

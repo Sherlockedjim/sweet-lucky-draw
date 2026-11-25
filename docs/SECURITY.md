@@ -8,7 +8,7 @@
 
 邀请码只存 code_hash（SHA-256）和 code_suffix，不存完整明文。内部奖品值为 cake / milk_tea / snack；中奖时间列为 drawn_at。不会按早期未审计假设重新创建或转换成明文表。
 
-## 拟应用的兼容变更
+## 已应用的兼容变更
 
 迁移文件是 supabase/migrations/20261124094234_secure_existing_hashed_invites.sql，完整影响说明见 DATABASE-REVIEW.md。首次执行曾被自动审批审查拒绝；用户于 2026-11-25 明确批准后，迁移已应用并读回验证。原管理员及既有行数保留。
 

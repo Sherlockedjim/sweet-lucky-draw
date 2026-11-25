@@ -15,6 +15,7 @@
 | 匿名访问三个管理 RPC | 真实 HTTP 返回权限拒绝，通过 |
 | 匿名直接读取三张业务表 | 严格核验权限拒绝/无可访问行，通过；网络错误不计为权限通过 |
 | 非法格式邀请码 | 真实 HTTP 拒绝，通过 |
+| 格式正确但不存在的邀请码 | 只读确认号码不存在，再由真实 HTTP 返回 INVALID_CODE，通过 |
 | 正确邀请码 | 真实 HTTP 返回服务端奖品和持久记录，通过 |
 | 重复使用 | 独立客户端被 CODE_USED 拒绝，通过 |
 | 两客户端并发同一码 | 两个独立 HTTP 客户端同时请求：一个成功，另一个 CODE_USED，通过 |
@@ -26,12 +27,22 @@
 
 临时创建的 2 个邀请码及 2 条中奖记录保留，现有管理员未删除。最初网络失败的生成请求已读回确认未提交后才重试。对可能产生写入的有效核销请求不自动重试。
 
-本机原始 HTTP 报告位于 artifacts/live-public-api-results.json 和 artifacts/live-negative-api-results.json；数据库审计与测试结果保存在被 Git 忽略的 .local/audits/。这些报告不含前端私密密钥。
+本机原始 HTTP 报告位于 artifacts/live-public-api-results.json（13 项通过）和 artifacts/live-negative-api-results.json（加强后的 10 项通过）；合计覆盖 14 种不重复检查。数据库审计与测试结果保存在被 Git 忽略的 .local/audits/。这些报告不含前端私密密钥。
 
 ## 浏览器
 
-用户页 1440 / 390 / 320px、登录页 1440 / 390px 已实际渲染检查，无横向溢出。活动说明与独立管理员路由检查通过；完整邀请码精确查询有对应组件测试。后续将核对正式公网 URL 和真实后台。
+本地用户页 1440 / 390 / 320px、登录页 1440 / 390px 已实际渲染检查，无横向溢出。活动说明与独立管理员路由检查通过；完整邀请码精确查询有对应组件测试。
+
+正式公网首页和 `#/admin` 已在浏览器实际打开；刷新后用户界面正常，三种奖品展示顺序重新随机，管理员入口显示独立登录页。正式页面截图位于 artifacts/screenshots/published-draw-desktop.jpg 和 published-admin-login-desktop.jpg。真实管理员密码登录仍待账号所有者本人完成。
 
 ## 部署
 
-已明确批准并成功应用生产迁移，读回确认 RLS 开启、直接表/列权限为空，原管理员保留。GitHub 仓库与公开构建变量已配置；公网发布正在进行，成功后记录准确网址和 Actions 状态。
+已明确批准并成功应用生产迁移，读回确认 RLS 开启、直接表/列权限为空，原管理员保留。
+
+- 用户页：https://sherlockedjim.github.io/sweet-lucky-draw/
+- 管理员页：https://sherlockedjim.github.io/sweet-lucky-draw/#/admin
+- [Verify 45546203741](https://github.com/Sherlockedjim/sweet-lucky-draw/actions/runs/45546203741)：成功。
+- [Deploy GitHub Pages 45546203718，第二次执行](https://github.com/Sherlockedjim/sweet-lucky-draw/actions/runs/45546203718)：build/deploy 成功。
+- 实际 HTTP 验证：首页 200、JS 200、CSS 200，证据 artifacts/deployment-http-check.json。
+
+两个独立 HTTP 客户端的并发请求已通过；没有把它称为两台物理设备的人工操作测试。普通用户的真实 Auth 密码登录也未执行，当前越权证据为真实数据库 authenticated 角色/JWT claims 校验。

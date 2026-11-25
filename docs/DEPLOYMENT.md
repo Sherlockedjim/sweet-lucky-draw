@@ -1,6 +1,8 @@
 # GitHub Pages + 现有 Supabase 部署
 
-GitHub 仓库已创建：https://github.com/Sherlockedjim/sweet-lucky-draw 。尚未发布公网网站；必须等 Actions 成功并实际打开页面后，才能将页面 URL 认定为可用。
+已于 2026-11-25 发布：[用户抽奖页](https://sherlockedjim.github.io/sweet-lucky-draw/) · [管理员后台](https://sherlockedjim.github.io/sweet-lucky-draw/#/admin) · [GitHub 仓库](https://github.com/Sherlockedjim/sweet-lucky-draw)。已在浏览器实际打开两个入口，首页、JS 和 CSS 请求均返回 200。
+
+源码提交 `56738f6d0ef81379d7abead09b684e9065ab610a` 的 [Verify](https://github.com/Sherlockedjim/sweet-lucky-draw/actions/runs/45546203741) 与 [Deploy GitHub Pages](https://github.com/Sherlockedjim/sweet-lucky-draw/actions/runs/45546203718) 均成功。首次发布在 Pages 启用前返回 404，启用后第二次执行成功。管理员密码登录尚待账号所有者本人确认，不能计为完成的真实登录测试。
 
 ## 当前连接和接续方式
 
@@ -40,13 +42,13 @@ npm run dev
 npm run test:db
 ```
 
-该脚本通过公开 key + 正常 Auth 登录测试，不使用管理密钥。它会生成 2 个新邀请码，核销其中一个，另一个由两个独立客户端同时请求；验证仅一个成功、一条记录、刷新恢复一致。测试产生的数据保留，不删除已有记录。1/500 边界和事务回滚另外在临时数据库测试，避免给现有活动制造 500 条测试邀请码。
+该脚本通过公开 key + 正常 Auth 登录测试，不使用管理密钥。它会生成 2 个新邀请码，核销其中一个，另一个由两个独立客户端同时请求；验证仅一个成功、一条记录、刷新恢复一致。测试产生的数据保留，不删除已有记录。本次还在真实数据库管理员 claims 下验证 1/500 边界和唯一性，并回滚该测试事务，没有留下 501 个额外邀请码。具体证据范围见 TEST-RESULTS.md。
 
 退出码 `0` 表示已执行的全部验收通过；`1` 表示失败；`2` 表示存在缺失配置或未执行项目。缺失账号时不能将 SKIPPED 计为通过。实际手机和电脑同时操作同一码仍应在最终验收中核对。
 
 ## GitHub 仓库与发布
 
-建议仓库名 `sweet-lucky-draw`。在账号中创建新仓库并推送本地源码。源码可公开；不要上传 `.env.local`、缓存或 credentials。GitHub Free 的 Pages 支持公开仓库。[GitHub Pages 自定义工作流文档](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。
+当前使用 `Sherlockedjim/sweet-lucky-draw` 公开仓库，main 已推送，下面的 Variables 和 Pages 配置均已完成。后续更新源码后推送 main 即自动发布。不要上传 `.env.local`、缓存或 credentials。[GitHub Pages 自定义工作流文档](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。
 
 进入仓库：
 
@@ -69,7 +71,7 @@ node --env-file=.env.local scripts/deploy-github.mjs sweet-lucky-draw
 
 脚本拒绝覆盖没有与当前目录关联的同名仓库；不会应用数据库迁移，也不会把“推送成功”当作“部署成功”。`gh` 不存在时使用插件或 GitHub 网页即可。
 
-最终地址格式通常是 `https://<账号>.github.io/sweet-lucky-draw/`，管理员地址追加 `#/admin`。这只是格式示例，**不是本项目已部署的地址**。
+已验证的正式地址是 `https://sherlockedjim.github.io/sweet-lucky-draw/`，管理员地址追加 `#/admin`。Hash 路由避免仓库子路径和管理员入口刷新产生 404。
 
 ## Supabase Auth 配置
 

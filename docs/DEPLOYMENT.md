@@ -2,7 +2,7 @@
 
 已于 2026-11-25 发布：[用户抽奖页](https://sherlockedjim.github.io/sweet-lucky-draw/) · [管理员后台](https://sherlockedjim.github.io/sweet-lucky-draw/#/admin) · [GitHub 仓库](https://github.com/Sherlockedjim/sweet-lucky-draw)。已在浏览器实际打开两个入口，首页、JS 和 CSS 请求均返回 200。
 
-源码提交 `56738f6d0ef81379d7abead09b684e9065ab610a` 的 [Verify](https://github.com/Sherlockedjim/sweet-lucky-draw/actions/runs/45546203741) 与 [Deploy GitHub Pages](https://github.com/Sherlockedjim/sweet-lucky-draw/actions/runs/45546203718) 均成功。首次发布在 Pages 启用前返回 404，启用后第二次执行成功。管理员密码登录尚待账号所有者本人确认，不能计为完成的真实登录测试。
+包含密码找回的功能版本 `0aa64c0752a1e09f98c3e01c3f60b8f8d7f5a080` 的 [Verify](https://github.com/Sherlockedjim/sweet-lucky-draw/actions/runs/45562165608) 与 [Deploy GitHub Pages](https://github.com/Sherlockedjim/sweet-lucky-draw/actions/runs/45562165516) 均成功。账号所有者已确认重置密码并登录，代理已实际验收后台生成、复制、CSV 导出、查奖和刷新记录保留。
 
 ## 当前连接和接续方式
 
@@ -79,7 +79,7 @@ node --env-file=.env.local scripts/deploy-github.mjs sweet-lucky-draw
 
 已于 2026-11-25 将 Auth Site URL 从默认 localhost 更新为正式网站，并增加精确回调 `https://sherlockedjim.github.io/sweet-lucky-draw/?recovery=1`。配置见 `supabase/config.toml`，CLI v3 仅推送其中显式声明的这两项 Auth 属性。读回差异确认这两项已一致，其余认证属性保留。
 
-找回入口是 `#/admin/reset-password`。重置邮件回到现有 Pages 首页的查询参数入口，SDK 只处理恢复回调；有效会话经 Auth 验证后展示新密码表单。成功后清空密码输入并退出该页面会话，要求重新使用新密码登录。密码只由账号所有者在页面提交；真实邮件送达和密码保存待本人验收。
+找回入口是 `#/admin/reset-password`。重置邮件回到现有 Pages 首页的查询参数入口，SDK 只处理恢复回调；有效会话经 Auth 验证后展示新密码表单。成功后清空密码输入并退出该页面会话，要求重新使用新密码登录。密码只由账号所有者在页面提交；账号所有者已确认完成重置，代理实际观察了随后登录的真实后台。
 
 Supabase 默认 SMTP 仅向项目组织成员邮箱发信，并有邮件速率限制。若真实邮箱不在允许范围，需要由项目所有者配置自有 SMTP；不要通过关闭邮箱验证解决发送问题。[Supabase SMTP 文档](https://supabase.com/docs/guides/auth/auth-smtp)。
 

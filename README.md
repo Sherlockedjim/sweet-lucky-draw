@@ -2,11 +2,11 @@
 
 浅鹅黄色的甜品盲盒抽奖屋。React + TypeScript + Vite，Supabase Auth / PostgreSQL RPC，GitHub Pages 静态部署。
 
-**当前状态（2026-11-25）：已部署 GitHub Pages，首页及静态资源实际返回 200，用户页和管理员登录页已在浏览器打开。60 项测试、构建和凭据扫描通过；生产迁移已获明确批准并应用，真实邀请码、并发及权限联调通过。已增加邮箱找回密码，账号所有者需在页面完成密码重置和真实登录验收。**
+**当前状态（2026-11-25）：已部署 GitHub Pages，首页及静态资源实际返回 200。60 项测试、构建和凭据扫描通过；生产迁移已获明确批准并应用，真实邀请码、并发及权限联调通过。账号所有者已确认重置密码，真实后台登录、生成邀请码、复制、CSV 导出、查奖及刷新记录保留均已验收。**
 
 用户网址：[甜甜抽奖屋](https://sherlockedjim.github.io/sweet-lucky-draw/) · 管理员网址：[管理后台](https://sherlockedjim.github.io/sweet-lucky-draw/#/admin) · [GitHub 源码](https://github.com/Sherlockedjim/sweet-lucky-draw)。
 
-沿用现有项目 `SYSU university / sweet-lucky-draw`。迁移前为 1 位管理员、0 个邀请码、0 条中奖记录；联调后保留原管理员和 2 个已使用的测试邀请码、2 条中奖记录。没有删除用户或已有数据。
+沿用现有项目 `SYSU university / sweet-lucky-draw`。迁移前为 1 位管理员、0 个邀请码、0 条中奖记录；保留原管理员和联调产生的 2 个已使用测试码、2 条记录。管理员随后自行生成 2 个未使用码，验收时后台共显示 4 个邀请码、2 条中奖记录。没有删除用户或已有数据。
 
 审计确认原有 RLS、管理员校验、行锁、唯一约束均已具备。兼容迁移保留哈希存储，补充结果恢复和完整列表返回；详见 `docs/DATABASE-REVIEW.md`。
 

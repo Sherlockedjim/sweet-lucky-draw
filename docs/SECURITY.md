@@ -33,6 +33,6 @@ Supabase CLI 与 GitHub CLI 用于部署的凭据保存在本机安全配置/密
 
 安全检查对可执行的 SECURITY DEFINER 函数提示人工审查。抽奖与结果找回是有意向持有邀请码的参与者开放的接口；管理员入口在数据库逐次验证名单。不能仅为消除提示改为 SECURITY INVOKER，因为浏览器没有直接表权限。
 
-原项目的 rls_auto_enable 是 Supabase 的事件触发器函数，本次没有修改其行为。另有未开启泄露密码保护的 Auth 提示，本次不更改现有管理员密码或账号配置。
+原项目的 rls_auto_enable 是 Supabase 的事件触发器函数，本次没有修改其行为。另有未开启泄露密码保护的 Auth 提示，该设置保留。密码找回仅更新正式站点与精确回调网址；密码由账号所有者本人重置，代理未读取或代填密码，原账号及管理员权限保留。
 
 依据：[Supabase 函数安全](https://supabase.com/docs/guides/database/functions)、[API 安全](https://supabase.com/docs/guides/api/securing-your-api)、[API key 类型](https://supabase.com/docs/guides/getting-started/api-keys)。

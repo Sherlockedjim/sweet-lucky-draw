@@ -91,7 +91,8 @@ if (process.env.TEST_ADMIN_EMAIL && process.env.TEST_ADMIN_PASSWORD) {
         assert.equal(responses.filter(r => !r.error).length, 1);
         assert.equal(responses.filter(r => r.error && /CODE_USED/.test(r.error.message)).length, 1);
         const records = await call(admin, 'admin_list_draws'); assert.ifError(records.error);
-        assert.equal(records.data.filter(r => r.code === batch[1].code).length, 1);
+        const winningId = responses.find(r => !r.error).data.id;
+        assert.equal(records.data.filter(r => r.id === winningId).length, 1);
       });
     }
   }

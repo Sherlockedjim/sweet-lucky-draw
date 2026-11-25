@@ -2,9 +2,9 @@
 
 浅鹅黄色的甜品盲盒抽奖屋。React + TypeScript + Vite，Supabase Auth / PostgreSQL RPC，GitHub Pages 静态部署。
 
-**当前状态（2026-11-24）：前后台、50 项本地测试和构建已完成；真实数据库已审计，GitHub 仓库已创建。生产迁移等待用户明确批准，联调和公网部署尚未完成。**
+**当前状态（2026-11-25）：前后台、50 项本地测试和构建已完成；真实数据库已审计，GitHub 仓库已创建。生产迁移已于 2026-11-25 获明确批准并应用，读回验证通过；真实联调和公网发布正在进行。**
 
-现有项目 `SYSU university / sweet-lucky-draw` 已通过官方 CLI 只读审计：1 位管理员、0 个邀请码、0 条中奖记录。GitHub 仓库是 https://github.com/Sherlockedjim/sweet-lucky-draw ，源码待迁移获批后推送并发布。没有删除用户或已有数据。
+现有项目 `SYSU university / sweet-lucky-draw` 已通过官方 CLI 只读审计：1 位管理员、0 个邀请码、0 条中奖记录。GitHub 仓库是 https://github.com/Sherlockedjim/sweet-lucky-draw ，生产迁移已应用，正在推送和发布。没有删除用户或已有数据。
 
 审计确认原有 RLS、管理员校验、行锁、唯一约束均已具备。兼容迁移保留哈希存储，补充结果恢复和完整列表返回；详见 `docs/DATABASE-REVIEW.md`。
 

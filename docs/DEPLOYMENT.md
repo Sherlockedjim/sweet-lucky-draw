@@ -4,7 +4,7 @@ GitHub 仓库已创建：https://github.com/Sherlockedjim/sweet-lucky-draw 。�
 
 ## 当前连接和接续方式
 
-官方 GitHub CLI 与 Supabase CLI 均已登录，真实数据库审计已经完成。两个公开 Actions Variables 已配置。生产兼容迁移首次执行被自动审批审查拒绝，正在等待用户明确批准锁表、权限调整和函数替换；原有管理员和业务数据未改变。
+官方 GitHub CLI 与 Supabase CLI 均已登录，真实数据库审计已经完成。两个公开 Actions Variables 已配置。生产兼容迁移已获用户明确批准，并于 2026-11-25 应用、读回验证；原有管理员和数据保留。
 
 现有项目控制台：<https://supabase.com/dashboard/project/turzcmepfvzwxiraopbd>。确认组织仍是 `SYSU university`，项目名仍是 `sweet-lucky-draw`。不要点击 New Project。
 
@@ -13,7 +13,7 @@ GitHub 仓库已创建：https://github.com/Sherlockedjim/sweet-lucky-draw 。�
 1. 进入现有项目 → SQL Editor → 新建查询。
 2. 粘贴并运行 `supabase/audit.sql`，保留输出。
 3. 根据 `docs/SECURITY.md` 审查真实函数和策略，并适配迁移预检要求。发现实际问题时先记录修复方案。
-4. 确认兼容后运行 `supabase/migrations/20261124094234_secure_existing_hashed_invites.sql`。该文件已按真实哈希结构适配并通过测试，目前等待用户明确批准，尚未应用。
+4. 确认兼容后运行 `supabase/migrations/20261124094234_secure_existing_hashed_invites.sql`。该文件已按真实哈希结构适配并通过测试，已于 2026-11-25 获用户明确批准并应用，读回核验成功。
 5. 再运行审计，核对管理员和行数不减少，并检查授权、函数与约束。
 
 `tests/fixtures/database.sql` 只供本地临时测试数据库使用，**不能**在现有项目执行。Actions 不运行迁移，不使用数据库密码。

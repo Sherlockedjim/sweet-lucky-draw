@@ -1,0 +1,78 @@
+// Real anonymous HTTP tests against the configured Supabase project.
+// Input: an ignored JSON array of freshly generated {id,code} invitations.
+// Does not use privileged keys or create/delete Auth users.
+import assert from 'node:assert/strict';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { createClient } from '@supabase/supabase-js';
+
+const url=process.env.VITE_SUPABASE_URL, key=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+assert(url && key && !key.startsWith('sb_secret_'),'Public connection configuration required');
+if(!key.startsWith('sb_publishable_')) {
+  assert.equal(JSON.parse(Buffer.from(key.split('.')[1],'base64url')).role,'anon');
+}
+const client=()=>createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+const first=client(),second=client();
+const rpc=(c,name,args={})=>c.rpc(name,args).abortSignal(AbortSignal.timeout(20000));
+async function readRpc(c,name,args={}) {
+  for(let attempt=0;attempt<3;attempt++) {
+    const value=await rpc(c,name,args);
+    if(!value.error || !/fetch|network|timeout|abort/i.test(value.error.message) || attempt===2) return value;
+  }
+}
+const results=[];
+const seeds=process.argv[2] ? JSON.parse(await readFile(process.argv[2],'utf8')) : null;
+if(seeds) assert(seeds.length>=2 && seeds.every(r=>/^[A-Z0-9]{8}$/.test(r.code))); 
+async function check(name,body) {
+  try { await body();results.push({name,status:'PASS'});console.log(`PASS ${name}`); }
+  catch(e) { results.push({name,status:'FAIL',message:String(e.message||e).replaceAll(key,'[redacted]')});console.error(`FAIL ${name}`); }
+}
+for(const method of ['admin_list_invites','admin_list_draws','admin_generate_codes']) {
+  await check(`anonymous denied: ${method}`,async()=>{
+    const {error}=await readRpc(first,method,method==='admin_generate_codes'?{p_count:1}:{});
+    assert(error && (/42501/.test(error.code)||/permission denied|NOT_ADMIN/i.test(error.message)));
+  });
+}
+for(const table of ['admin_users','invite_codes','draw_records']) {
+  await check(`direct table access denied: ${table}`,async()=>{
+    let response;
+    for(let attempt=0;attempt<3;attempt++) {
+      response=await first.from(table).select('*').limit(1).abortSignal(AbortSignal.timeout(20000));
+      if(!response.error || !/fetch|network|timeout|abort/i.test(response.error.message) || attempt===2) break;
+    }
+    const {data,error}=response;
+    assert(error ? /42501|PGRST205/.test(error.code) || /permission denied/i.test(error.message) : Array.isArray(data)&&data.length===0);
+  });
+}
+for(const code of ['BAD','abcd1234','ABCD!123']) {
+  await check(`malformed invitation rejected: ${code}`,async()=>{
+    const {error}=await readRpc(first,'redeem_and_draw',{p_code:code});
+    assert(error && /INVALID_CODE/.test(error.message));
+  });
+}
+if(seeds) {
+  let receipt;
+  await check('correct invitation returns a saved server award',async()=>{
+    const {data,error}=await rpc(first,'redeem_and_draw',{p_code:seeds[0].code});
+    assert.ifError(error);assert(['蛋糕','奶茶','小吃'].includes(data.prize));
+    assert(data.id && data.created_at);receipt=data;
+  });
+  await check('used invitation rejected from another client',async()=>{
+    const {error}=await rpc(second,'redeem_and_draw',{p_code:seeds[0].code});
+    assert(error && /CODE_USED/.test(error.message));
+  });
+  await check('new client recovers the identical saved result',async()=>{
+    const {data,error}=await readRpc(client(),'get_draw_result',{p_code:seeds[0].code});
+    assert.ifError(error);assert.deepEqual(data,receipt);
+  });
+  await check('two independent clients redeem concurrently: exactly one succeeds',async()=>{
+    const responses=await Promise.all([rpc(first,'redeem_and_draw',{p_code:seeds[1].code}),rpc(second,'redeem_and_draw',{p_code:seeds[1].code})]);
+    assert.equal(responses.filter(r=>!r.error).length,1);
+    assert.equal(responses.filter(r=>r.error && /CODE_USED/.test(r.error.message)).length,1);
+    const winner=responses.find(r=>!r.error).data;
+    const recovered=await readRpc(client(),'get_draw_result',{p_code:seeds[1].code});
+    assert.ifError(recovered.error);assert.deepEqual(recovered.data,winner);
+  });
+}
+await mkdir('artifacts',{recursive:true});
+await writeFile(process.env.TEST_REPORT_FILE || 'artifacts/live-public-api-results.json',JSON.stringify({executedAt:new Date().toISOString(),mode:'real anonymous HTTP; no administrator password login',results},null,2)+'\n');
+if(results.some(r=>r.status==='FAIL')) process.exitCode=1;

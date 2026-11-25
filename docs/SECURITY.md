@@ -10,7 +10,7 @@
 
 ## 拟应用的兼容变更
 
-迁移文件是 supabase/migrations/20261124094234_secure_existing_hashed_invites.sql，完整影响说明见 DATABASE-REVIEW.md。当前首次执行被自动审批审查拒绝，等待用户明确批准，尚未应用。
+迁移文件是 supabase/migrations/20261124094234_secure_existing_hashed_invites.sql，完整影响说明见 DATABASE-REVIEW.md。首次执行曾被自动审批审查拒绝；用户于 2026-11-25 明确批准后，迁移已应用并读回验证。原管理员及既有行数保留。
 
 - 原表、数据、Auth 用户及管理员成员全部保留。
 - 原有四个 RPC 移至非公开 sweet_legacy schema，保留定义；同名新接口统一返回前端所需 JSONB。

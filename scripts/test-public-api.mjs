@@ -50,6 +50,14 @@ for(const code of ['BAD','abcd1234','ABCD!123']) {
     assert(error && /INVALID_CODE/.test(error.message));
   });
 }
+await check('missing participant rejected before invitation lookup',async()=>{
+  const {error}=await readRpc(first,'redeem_and_draw',{p_code:'CHECK123'});
+  assert(error && /PROFILE_REQUIRED/.test(error.message));
+});
+await check('invalid participant rejected before invitation lookup',async()=>{
+  const {error}=await readRpc(first,'redeem_and_draw',{p_code:'CHECK123',p_nickname:'   ',p_avatar:testProfile.p_avatar});
+  assert(error && /INVALID_PROFILE/.test(error.message));
+});
 // Supply only a well-formed code already verified absent in a read-only database query.
 // Do not retry this call: a valid-code redemption can commit even when transport fails.
 if(process.env.TEST_INVALID_CODE) {

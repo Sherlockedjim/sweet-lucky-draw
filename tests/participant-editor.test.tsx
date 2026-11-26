@@ -14,7 +14,7 @@ function Editor({initial=emptyProfile()}:{initial?:ParticipantProfile}) {
 }
 beforeEach(()=>{mocks.prepare.mockReset();});
 describe('participant editor',()=>{
-  it('is optional and renders nickname as escaped text',()=>{
+  it('renders an empty profile and escapes nickname text',()=>{
     render(<Editor/>);
     expect(screen.queryByRole('group',{name:'结果页个人资料'})).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('昵称'),{target:{value:'<script>小甜</script>'}});

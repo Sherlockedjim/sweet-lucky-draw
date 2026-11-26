@@ -22,6 +22,11 @@ export function safeProfile(value: unknown): ParticipantProfile {
 
 export const hasProfile = (profile: ParticipantProfile) => !!(profile.nickname || profile.avatar);
 
+export function isCompleteProfile(profile: ParticipantProfile): boolean {
+  const clean = safeProfile(profile);
+  return !!(clean.nickname && clean.avatar);
+}
+
 export function saveReceiptProfile(receiptId: string, profile: ParticipantProfile): boolean {
   try {
     const clean = safeProfile(profile);

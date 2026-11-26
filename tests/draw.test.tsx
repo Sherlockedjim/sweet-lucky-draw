@@ -1,23 +1,92 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ draw: vi.fn(), recover: vi.fn(), pending: '', remember: vi.fn(), forget: vi.fn() }));
+const mocks = vi.hoisted(() => ({ draw: vi.fn(), recover: vi.fn(), pending: '', remember: vi.fn(), forget: vi.fn(), prepareAvatar: vi.fn() }));
 vi.mock('../src/lib/supabase', () => ({ configured: true }));
 vi.mock('../src/lib/api', () => ({ draw: mocks.draw, recover: mocks.recover, readPendingCode: () => mocks.pending, rememberCode: mocks.remember, forgetCode: mocks.forget }));
+vi.mock('../src/lib/participant', async importOriginal => ({ ...await importOriginal<typeof import('../src/lib/participant')>(), prepareAvatar: mocks.prepareAvatar }));
 import DrawPage from '../src/pages/DrawPage';
 import { HAPPY_MESSAGE } from '../src/lib/domain';
 import { PROFILE_STORAGE_KEY, saveReceiptProfile } from '../src/lib/participant';
 
 const award = { id: 'f85d6a52-3211-4be8-a1cd-24a56057420a', prize: '奶茶', created_at: '2026-11-24T08:00:00Z' };
+const avatar = 'data:image/jpeg;base64,/9j/2Q==';
 const choose = () => screen.getByRole('button', { name: '选择第 1 个幸运盲盒' });
+async function uploadAvatar() {
+  fireEvent.change(screen.getByLabelText('头像图片文件'), { target: { files: [new File(['photo'], 'avatar.jpg', { type: 'image/jpeg' })] } });
+  await waitFor(() => expect(screen.getByRole('button', { name: '更换头像' })).toBeEnabled());
+}
 async function enterCode(code = 'ABCD1234') {
+  const nickname = screen.getByLabelText('昵称') as HTMLInputElement;
+  if (!nickname.value) fireEvent.change(nickname, { target: { value: '云朵同学' } });
+  await uploadAvatar();
   fireEvent.change(screen.getByLabelText(/你的专属邀请码/), { target: { value: code } });
   fireEvent.click(screen.getByRole('button', { name: /开启好运/ }));
 }
 
-beforeEach(() => { localStorage.clear(); mocks.pending = ''; mocks.draw.mockReset(); mocks.recover.mockReset(); mocks.remember.mockReset(); mocks.forget.mockReset(); });
+beforeEach(() => { localStorage.clear(); mocks.pending = ''; mocks.draw.mockReset(); mocks.recover.mockReset(); mocks.remember.mockReset(); mocks.forget.mockReset(); mocks.prepareAvatar.mockReset().mockResolvedValue(avatar); });
 
 describe('draw user flow', () => {
+  it('requires both nickname and avatar before accepting an invitation, including direct form submission', () => {
+    render(<DrawPage/>);
+    const input = screen.getByLabelText(/你的专属邀请码/);
+    expect(input).toBeDisabled();
+    expect(screen.getByRole('button', { name: /开启好运/ })).toBeDisabled();
+    fireEvent.change(input, { target: { value: 'ABCD1234' } });
+    fireEvent.submit(input.closest('form')!);
+    expect(screen.getByRole('alert')).toHaveTextContent('请先填写昵称并上传头像');
+    expect(choose()).toBeDisabled();
+    expect(mocks.draw).not.toHaveBeenCalled();
+  });
+  it('keeps the invitation locked when only a nickname is filled', () => {
+    render(<DrawPage/>);
+    fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '云朵同学' } });
+    expect(screen.getByLabelText(/你的专属邀请码/)).toBeDisabled();
+    expect(screen.getByRole('button', { name: /开启好运/ })).toBeDisabled();
+    expect(choose()).toBeDisabled();
+  });
+  it('keeps the invitation locked when only an avatar is selected', async () => {
+    render(<DrawPage/>); await uploadAvatar();
+    expect(screen.getByLabelText(/你的专属邀请码/)).toBeDisabled();
+    expect(screen.getByRole('button', { name: /开启好运/ })).toBeDisabled();
+    expect(choose()).toBeDisabled();
+  });
+  it('locks the boxes again when required details are cleared after unlocking an invitation', async () => {
+    render(<DrawPage/>); await enterCode();
+    expect(choose()).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '清除资料' }));
+    expect(screen.getByLabelText(/你的专属邀请码/)).toHaveValue('ABCD1234');
+    expect(screen.getByLabelText(/你的专属邀请码/)).toBeDisabled();
+    expect(choose()).toBeDisabled();
+    expect(screen.getByRole('button', { name: /帮我挑一个/ })).toBeDisabled();
+    fireEvent.click(choose());
+    fireEvent.submit(screen.getByLabelText(/你的专属邀请码/).closest('form')!);
+    expect(mocks.draw).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '云朵同学' } });
+    await uploadAvatar();
+    expect(choose()).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /开启好运/ }));
+    expect(choose()).toBeEnabled();
+  });
+  it('treats a whitespace-only nickname as missing even after the boxes were unlocked', async () => {
+    render(<DrawPage/>); await enterCode();
+    fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '   ' } });
+    expect(choose()).toBeDisabled();
+    expect(screen.getByRole('button', { name: /开启好运/ })).toBeDisabled();
+    expect(mocks.draw).not.toHaveBeenCalled();
+  });
+  it('blocks drawing while a replacement avatar is being processed', async () => {
+    render(<DrawPage/>); await enterCode();
+    let finish!: (value: string) => void;
+    mocks.prepareAvatar.mockImplementationOnce(() => new Promise<string>(resolve => { finish = resolve; }));
+    fireEvent.change(screen.getByLabelText('头像图片文件'), { target: { files: [new File(['photo'], 'next.jpg', { type: 'image/jpeg' })] } });
+    expect(choose()).toBeDisabled();
+    expect(screen.getByRole('button', { name: /帮我挑一个/ })).toBeDisabled();
+    fireEvent.click(choose());
+    expect(mocks.draw).not.toHaveBeenCalled();
+    await act(async () => finish(avatar));
+    expect(choose()).toBeEnabled();
+  });
   it('blocks boxes until an eight-character invitation is entered', async () => {
     render(<DrawPage/>);
     expect(choose()).toBeDisabled();
@@ -99,12 +168,13 @@ describe('draw user flow', () => {
     expect(screen.getByLabelText('本次盲盒揭晓').children).toHaveLength(6);
     expect(mocks.draw).not.toHaveBeenCalled();
   });
-  it('shows the optional nickname on the result while sending only the code to the server',async()=>{
+  it('shows the required nickname and avatar on the result while sending only the code to the server',async()=>{
     mocks.draw.mockResolvedValue(award);
     render(<DrawPage/>);
     fireEvent.change(screen.getByLabelText('昵称'),{target:{value:'云朵同学'}});
     await enterCode(); fireEvent.click(choose());
     expect(await screen.findByRole('group',{name:'结果页个人资料'})).toHaveTextContent('云朵同学');
+    expect(within(screen.getByRole('group',{name:'结果页个人资料'})).getByAltText('云朵同学的头像')).toHaveAttribute('src',avatar);
     expect(mocks.draw).toHaveBeenCalledWith('ABCD1234');
     expect(JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY)!)).toMatchObject({receiptId:award.id,profile:{nickname:'云朵同学'}});
   });

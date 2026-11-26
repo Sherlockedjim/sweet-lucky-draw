@@ -1,10 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearReceiptProfile, imageMime, MAX_AVATAR_FILE_BYTES, normalizeNickname, prepareAvatar, PROFILE_STORAGE_KEY, readReceiptProfile, safeProfile, saveReceiptProfile } from '../src/lib/participant';
+import { clearReceiptProfile, imageMime, isCompleteProfile, MAX_AVATAR_FILE_BYTES, normalizeNickname, prepareAvatar, PROFILE_STORAGE_KEY, readReceiptProfile, safeProfile, saveReceiptProfile } from '../src/lib/participant';
 
 const avatar='data:image/jpeg;base64,/9j/2Q==';
 beforeEach(()=>localStorage.clear());
 
-describe('optional participant data',()=>{
+describe('participant data',()=>{
+  it('requires a nonempty normalized nickname and a valid local avatar together',()=>{
+    expect(isCompleteProfile({nickname:' 云朵 ',avatar})).toBe(true);
+    for (const profile of [
+      {nickname:'',avatar:null}, {nickname:'云朵',avatar:null}, {nickname:'',avatar},
+      {nickname:' \n\t ',avatar}, {nickname:'云朵',avatar:'https://example.test/avatar.jpg'},
+    ]) expect(isCompleteProfile(profile)).toBe(false);
+  });
   it('normalizes nickname controls and limits graphemes without splitting family emoji',()=>{
     expect(normalizeNickname('  云朵\n同学  ')).toBe('云朵同学');
     expect(normalizeNickname('Alex ',false)).toBe('Alex ');

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({ draw: vi.fn(), recover: vi.fn(), pending: '', 
 vi.mock('../src/lib/supabase', () => ({ configured: true }));
 vi.mock('../src/lib/api', () => ({ draw: mocks.draw, recover: mocks.recover, readPendingCode: () => mocks.pending, rememberCode: mocks.remember, forgetCode: mocks.forget }));
 import DrawPage from '../src/pages/DrawPage';
+import { HAPPY_MESSAGE } from '../src/lib/domain';
 
 const award = { id: 'f85d6a52-3211-4be8-a1cd-24a56057420a', prize: '奶茶', created_at: '2026-11-24T08:00:00Z' };
 const choose = () => screen.getByRole('button', { name: '选择第 1 个幸运盲盒' });
@@ -19,6 +20,7 @@ describe('draw user flow', () => {
   it('blocks boxes until an eight-character invitation is entered', async () => {
     render(<DrawPage/>);
     expect(choose()).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: /^选择第 [1-6] 个幸运盲盒$/ })).toHaveLength(6);
     await enterCode('ABCD!234');
     expect(screen.getByRole('alert')).toHaveTextContent('只能包含大写英文字母和数字');
     expect(mocks.draw).not.toHaveBeenCalled();
@@ -74,6 +76,26 @@ describe('draw user flow', () => {
     render(<DrawPage/>);
     expect(await screen.findByRole('alert')).toHaveTextContent('网络');
     await waitFor(() => expect(screen.getByRole('button', { name: /找回抽奖结果/ })).toBeEnabled());
+    expect(mocks.draw).not.toHaveBeenCalled();
+  });
+  it('opens the sixth box and reveals exactly three happy wishes without a redemption promise', async () => {
+    mocks.draw.mockResolvedValue({ ...award, prize: HAPPY_MESSAGE });
+    render(<DrawPage/>); await enterCode();
+    fireEvent.click(screen.getByRole('button', { name:'选择第 6 个幸运盲盒' }));
+    expect(await screen.findByRole('heading', { name:HAPPY_MESSAGE })).toBeVisible();
+    const row = screen.getByLabelText('本次盲盒揭晓');
+    expect(row.children).toHaveLength(6);
+    expect([...row.children].filter(el=>el.textContent?.includes(HAPPY_MESSAGE))).toHaveLength(3);
+    expect(row.children[5]).toHaveClass('chosen');
+    expect(screen.queryByText('请保留这份记录，并联系活动管理员兑换奖品。')).not.toBeInTheDocument();
+    expect(screen.getByText(/没有实物奖品的开心礼盒/)).toBeVisible();
+    expect(mocks.draw).toHaveBeenCalledTimes(1);
+  });
+  it('restores a saved happy wish on refresh without another draw', async () => {
+    mocks.pending='ABCD1234'; mocks.recover.mockResolvedValue({ ...award, prize:HAPPY_MESSAGE });
+    render(<DrawPage/>);
+    expect(await screen.findByRole('heading', { name:HAPPY_MESSAGE })).toBeVisible();
+    expect(screen.getByLabelText('本次盲盒揭晓').children).toHaveLength(6);
     expect(mocks.draw).not.toHaveBeenCalled();
   });
 });

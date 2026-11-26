@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { friendlyError, normalizeCode, parseDraw, PRIZES, randomInt, revealOrder, shuffle, toCsv, validCode } from '../src/lib/domain';
+import { BOX_CONTENTS, HAPPY_MESSAGE, friendlyError, normalizeCode, parseDraw, PRIZES, randomInt, revealOrder, shuffle, toCsv, validCode } from '../src/lib/domain';
 import { isPublicKey } from '../src/lib/supabase';
 
 describe('invitation validation', () => {
@@ -13,10 +13,12 @@ describe('invitation validation', () => {
 
 describe('server authoritative rewards', () => {
   it('reveals each possible database prize at any selected position', () => {
-    for (const prize of PRIZES) for (let index = 0; index < 3; index++) {
+    for (const prize of [...PRIZES, HAPPY_MESSAGE]) for (let index = 0; index < 6; index++) {
       const order = revealOrder(prize, index);
       expect(order[index]).toBe(prize);
-      expect([...order].sort()).toEqual([...PRIZES].sort());
+      expect(order).toHaveLength(6);
+      expect([...order].sort()).toEqual([...BOX_CONTENTS].sort());
+      expect(order.filter(p => p === HAPPY_MESSAGE)).toHaveLength(3);
     }
   });
   it('rejects malformed or fabricated server awards', () => {
@@ -25,6 +27,10 @@ describe('server authoritative rewards', () => {
   it('accepts the required database response contract', () => {
     const record = { id: 'uuid', prize: '蛋糕', created_at: '2026-11-24T08:00:00Z' };
     expect(parseDraw(record)).toEqual(record);
+    expect(parseDraw({ ...record, prize: HAPPY_MESSAGE }).prize).toBe(HAPPY_MESSAGE);
+  });
+  it('rejects selections outside the six available boxes', () => {
+    for (const selected of [-1, 6, 1.5]) expect(() => revealOrder('奶茶', selected)).toThrow('INVALID_SELECTION');
   });
   it('shuffles without mutating the prize pool', () => {
     const prizes = [...PRIZES];

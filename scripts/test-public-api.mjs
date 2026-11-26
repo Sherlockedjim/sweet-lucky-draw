@@ -62,7 +62,7 @@ if(seeds) {
   let receipt;
   await check('correct invitation returns a saved server award',async()=>{
     const {data,error}=await rpc(first,'redeem_and_draw',{p_code:seeds[0].code});
-    assert.ifError(error);assert(['蛋糕','奶茶','小吃'].includes(data.prize));
+    assert.ifError(error);assert(['蛋糕','奶茶','小吃','送你一天的开心～'].includes(data.prize));
     assert(data.id && data.created_at);receipt=data;
   });
   await check('used invitation rejected from another client',async()=>{

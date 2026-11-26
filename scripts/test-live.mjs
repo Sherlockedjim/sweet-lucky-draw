@@ -76,7 +76,7 @@ if (process.env.TEST_ADMIN_EMAIL && process.env.TEST_ADMIN_PASSWORD) {
       let award;
       await test('correct invitation redeemed once', async () => {
         const { data, error } = await call(anonA, 'redeem_and_draw', { p_code: batch[0].code });
-        assert.ifError(error); assert(['蛋糕', '奶茶', '小吃'].includes(data.prize)); award = data;
+        assert.ifError(error); assert(['蛋糕', '奶茶', '小吃', '送你一天的开心～'].includes(data.prize)); award = data;
       });
       await test('used invitation rejected', async () => {
         const { error } = await call(anonB, 'redeem_and_draw', { p_code: batch[0].code });

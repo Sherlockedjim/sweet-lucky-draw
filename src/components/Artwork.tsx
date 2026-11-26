@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { Prize } from '../lib/domain';
+import { HAPPY_MESSAGE, type Prize } from '../lib/domain';
 
 export function GiftArt({ tone = 0, open = false }: { tone?: number; open?: boolean }) {
   const colors = [['#ffe291', '#f2a39a'], ['#f5d8a3', '#a4bb97'], ['#f7d2a6', '#e6a369']][tone];
@@ -33,6 +33,13 @@ export function PrizeArt({ prize, className = '' }: { prize: Prize; className?: 
   return <svg className={`prize-art ${className}`} viewBox="0 0 200 200" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <defs><pattern id={id} width="7" height="7" patternUnits="userSpaceOnUse"><path d="M0 0l7 7" stroke="#fff" strokeOpacity=".12" /></pattern></defs>
     <ellipse cx="100" cy="171" rx="64" ry="10" fill="#73532b" opacity=".08" />
+    {prize === HAPPY_MESSAGE && <g stroke="#ad873b" strokeWidth="3">
+      <path d="M100 24v13m0 113v13M31 94h13m112 0h13M51 45l10 10m79 79 10 10M51 144l10-10m79-79 10-10"/>
+      <circle cx="100" cy="94" r="46" fill="#ffe49a"/>
+      <path d="M78 87q5-9 10 0m24 0q5-9 10 0M84 107q16 20 32 0"/>
+      <g stroke="none" fill="#edae94"><ellipse cx="73" cy="101" rx="9" ry="5"/><ellipse cx="127" cy="101" rx="9" ry="5"/></g>
+      <path d="m159 37 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="#eec977" strokeWidth="1.5"/>
+    </g>}
     {prize === '蛋糕' && <g stroke="#865b40" strokeWidth="2.5">
       <ellipse cx="100" cy="160" rx="66" ry="12" fill="#fff9e9"/>
       <path d="M47 91h106v61c0 17-106 17-106 0z" fill="#f5c895"/>

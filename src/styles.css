@@ -23,3 +23,7 @@
 
 /* Password recovery */
 .login-card .forgot-password{display:flex;margin:12px auto 0}.recovery-card .field-hint{display:block;margin-top:8px;line-height:1.7}.recovery-card>.primary-button{display:flex}.recovery-sent{display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding:14px;background:#edf3e4;border:1px solid #d9e3cb;border-radius:10px;color:#596a3f;font-size:.875rem;line-height:1.8}.recovery-sent svg{margin-top:3px}.recovery-card>.recovery-help{font-size:.8125rem;line-height:1.8;margin-top:14px}.recovery-card>p[role=status]{line-height:1.8}.recovery-card>p[role=status] svg{vertical-align:middle;margin-right:7px}
+
+/* Six gifts: three treats and three happy wishes. */
+.revealed-row{max-width:660px}.revealed-row>div>span:first-of-type{overflow-wrap:anywhere;text-align:center}.happy-result h3 span{font-size:clamp(1.55rem,3vw,2.1rem);line-height:1.5}.happy-result .claim-note{color:#8d805f}
+@media(max-width:720px){.boxes{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.box-card{min-height:218px}.box-card .gift-art{height:138px}.revealed-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.revealed-row>div{min-height:92px;padding:8px 6px}.happy-result h3 span{font-size:1.55rem}}

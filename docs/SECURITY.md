@@ -35,4 +35,6 @@ Supabase CLI 与 GitHub CLI 用于部署的凭据保存在本机安全配置/密
 
 原项目的 rls_auto_enable 是 Supabase 的事件触发器函数，本次没有修改其行为。另有未开启泄露密码保护的 Auth 提示，该设置保留。密码找回仅更新正式站点与精确回调网址；密码由账号所有者本人重置，代理未读取或代填密码，原账号及管理员权限保留。
 
+2026-11-26 六礼盒变更只增加私有槽位映射与 `happy` 结果，不扩大公共 API 权限。检查仍提示人工审查公开 SECURITY DEFINER RPC，以及表开启 RLS 但无直接访问策略（本项目使用禁止直接表访问、由 RPC 提供受控入口的设计）。参考：[公开函数执行提示](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable)、[RLS 无策略提示](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)、[泄露密码保护](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)。
+
 依据：[Supabase 函数安全](https://supabase.com/docs/guides/database/functions)、[API 安全](https://supabase.com/docs/guides/api/securing-your-api)、[API key 类型](https://supabase.com/docs/guides/getting-started/api-keys)。

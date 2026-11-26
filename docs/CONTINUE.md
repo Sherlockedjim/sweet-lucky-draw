@@ -20,3 +20,7 @@
 正式后台 CUA 验收已结束并提交 completion_summary，后台标签页保留为交付。原本机 Vite 预览已停止。无需再要求用户重置密码或重复登录。两个独立 HTTP 客户端的并发测试已完成；两台物理设备人工测试和普通账号的实际密码登录未执行，证据范围见 TEST-RESULTS.md。
 
 运行与部署命令见 README.md / DEPLOYMENT.md，后台操作见 ADMIN-GUIDE.md，证据范围见 TEST-RESULTS.md。原始审计在被 Git 忽略的 .local/audits，HTTP 与发布报告在 artifacts；不得将网络失败当作权限测试通过，也不得盲目重试可能已提交的核销请求。
+
+## 2026-11-26 六礼盒更新
+
+六个礼盒包含蛋糕、奶茶、小吃各一份和三份“送你一天的开心～”。新增量迁移为 20261126023841_six_boxes_with_happy_messages.sql，先发布前端兼容支持，再在原项目激活此迁移。69 项本地测试通过，电脑 3×2、手机 2×3 布局已实际检查。生产迁移应用及只读/回滚验证以 artifacts/six-boxes-validation.json 为准；仅渲染出六格不能证明后台概率已切换。

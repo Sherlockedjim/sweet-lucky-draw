@@ -1,5 +1,7 @@
-export type Prize = '蛋糕' | '奶茶' | '小吃';
-export const PRIZES: Prize[] = ['蛋糕', '奶茶', '小吃'];
+export const PRIZES = ['蛋糕', '奶茶', '小吃'] as const;
+export const HAPPY_MESSAGE = '送你一天的开心～' as const;
+export type Prize = typeof PRIZES[number] | typeof HAPPY_MESSAGE;
+export const BOX_CONTENTS: readonly Prize[] = [...PRIZES, HAPPY_MESSAGE, HAPPY_MESSAGE, HAPPY_MESSAGE];
 export const CODE_PATTERN = /^[A-Z0-9]{8}$/;
 export const validCode = (code: string) => CODE_PATTERN.test(code);
 export const normalizeCode = (code: string) => code.trim().toUpperCase();
@@ -23,7 +25,13 @@ export function shuffle<T>(items: readonly T[]): T[] {
 
 // The chosen box always receives the database award. Other positions are decorative.
 export function revealOrder(prize: Prize, selected: number): Prize[] {
-  const rest = shuffle(PRIZES.filter(p => p !== prize));
+  if (!Number.isInteger(selected) || selected < 0 || selected >= BOX_CONTENTS.length) throw new Error('INVALID_SELECTION');
+  const remaining = [...BOX_CONTENTS];
+  const match = remaining.indexOf(prize);
+  if (match < 0) throw new Error('INVALID_SERVER_RESULT');
+  // Remove exactly one occurrence: a happy result still leaves two other happy boxes.
+  remaining.splice(match, 1);
+  const rest = shuffle(remaining);
   rest.splice(selected, 0, prize);
   return rest;
 }
@@ -36,7 +44,7 @@ export function parseDraw(value: unknown): DrawResult {
   const raw = Array.isArray(value) ? value[0] : value;
   if (!raw || typeof raw !== 'object') throw new Error('INVALID_SERVER_RESULT');
   const r = raw as Record<string, unknown>;
-  if (typeof r.id !== 'string' || !PRIZES.includes(r.prize as Prize) || typeof r.created_at !== 'string' || Number.isNaN(Date.parse(r.created_at))) {
+  if (typeof r.id !== 'string' || !BOX_CONTENTS.includes(r.prize as Prize) || typeof r.created_at !== 'string' || Number.isNaN(Date.parse(r.created_at))) {
     throw new Error('INVALID_SERVER_RESULT');
   }
   return { id: r.id, prize: r.prize as Prize, created_at: r.created_at };

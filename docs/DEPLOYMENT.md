@@ -84,3 +84,9 @@ node --env-file=.env.local scripts/deploy-github.mjs sweet-lucky-draw
 Supabase 默认 SMTP 仅向项目组织成员邮箱发信，并有邮件速率限制。若真实邮箱不在允许范围，需要由项目所有者配置自有 SMTP；不要通过关闭邮箱验证解决发送问题。[Supabase SMTP 文档](https://supabase.com/docs/guides/auth/auth-smtp)。
 
 如果普通用户能成功调用管理 RPC、一个邀请码出现两条记录，或者审计权限结果与方案不一致，应先修复并复测，再发布活动。不要以隐藏管理入口替代数据库权限。
+
+## 六礼盒规则更新
+
+对应迁移：`supabase/migrations/20261126023841_six_boxes_with_happy_messages.sql`。先推送支持开心结果的前端并等待 Pages 发布成功，再在现有项目应用这一份增量 SQL，随后读回槽位映射、显示函数和历史行数。不要用 `db push` 把之前已直接应用的旧迁移重新运行。新私有 helper 不向 API 角色授权，公共 RPC、RLS 和事务一致性保持原有实现。
+
+新规则中蛋糕、奶茶、小吃各占 1/6；三个开心空盒合计占 1/2。开心空盒同样使用一次邀请码并保存记录。后台中奖记录和 CSV 的奖品列会显示“送你一天的开心～”，历史实物结果继续显示原奖品。

@@ -29,6 +29,13 @@ describe('server authoritative rewards', () => {
     expect(parseDraw(record)).toEqual(record);
     expect(parseDraw({ ...record, prize: HAPPY_MESSAGE }).prize).toBe(HAPPY_MESSAGE);
   });
+  it('accepts a saved participant but rejects incomplete and external-avatar receipts',()=>{
+    const record={id:'uuid',prize:'奶茶',created_at:'2026-11-26T06:00:00Z'};
+    const participant={nickname:'云朵',avatar:'data:image/jpeg;base64,/9j/2Q=='};
+    expect(parseDraw({...record,participant})).toEqual({...record,participant});
+    for(const p of [{nickname:'云朵',avatar:null},{nickname:'',avatar:participant.avatar},{nickname:'云朵',avatar:'https://example.test/avatar.jpg'}]) expect(()=>parseDraw({...record,participant:p})).toThrow('INVALID_SERVER_RESULT');
+    expect(parseDraw({...record,participant:null})).toEqual(record);
+  });
   it('rejects selections outside the six available boxes', () => {
     for (const selected of [-1, 6, 1.5]) expect(() => revealOrder('奶茶', selected)).toThrow('INVALID_SELECTION');
   });

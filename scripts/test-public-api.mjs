@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { createClient } from '@supabase/supabase-js';
 
+const testProfile = { p_nickname: '自动联调测试', p_avatar: 'data:image/jpeg;base64,' + (await readFile(new URL('../tests/fixtures/avatar.jpg', import.meta.url))).toString('base64') };
 const url=process.env.VITE_SUPABASE_URL, key=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 assert(url && key && !key.startsWith('sb_secret_'),'Public connection configuration required');
 if(!key.startsWith('sb_publishable_')) {
@@ -45,7 +46,7 @@ for(const table of ['admin_users','invite_codes','draw_records']) {
 }
 for(const code of ['BAD','abcd1234','ABCD!123']) {
   await check(`malformed invitation rejected: ${code}`,async()=>{
-    const {error}=await readRpc(first,'redeem_and_draw',{p_code:code});
+    const {error}=await readRpc(first,'redeem_and_draw',{p_code:code, ...testProfile });
     assert(error && /INVALID_CODE/.test(error.message));
   });
 }
@@ -54,19 +55,19 @@ for(const code of ['BAD','abcd1234','ABCD!123']) {
 if(process.env.TEST_INVALID_CODE) {
   assert(/^[A-Z0-9]{8}$/.test(process.env.TEST_INVALID_CODE));
   await check('well-formed nonexistent invitation rejected',async()=>{
-    const {error}=await rpc(first,'redeem_and_draw',{p_code:process.env.TEST_INVALID_CODE});
+    const {error}=await rpc(first,'redeem_and_draw',{p_code:process.env.TEST_INVALID_CODE, ...testProfile });
     assert(error && /INVALID_CODE/.test(error.message));
   });
 }
 if(seeds) {
   let receipt;
   await check('correct invitation returns a saved server award',async()=>{
-    const {data,error}=await rpc(first,'redeem_and_draw',{p_code:seeds[0].code});
+    const {data,error}=await rpc(first,'redeem_and_draw',{p_code:seeds[0].code, ...testProfile });
     assert.ifError(error);assert(['蛋糕','奶茶','小吃','送你一天的开心～'].includes(data.prize));
     assert(data.id && data.created_at);receipt=data;
   });
   await check('used invitation rejected from another client',async()=>{
-    const {error}=await rpc(second,'redeem_and_draw',{p_code:seeds[0].code});
+    const {error}=await rpc(second,'redeem_and_draw',{p_code:seeds[0].code, ...testProfile });
     assert(error && /CODE_USED/.test(error.message));
   });
   await check('new client recovers the identical saved result',async()=>{
@@ -74,7 +75,7 @@ if(seeds) {
     assert.ifError(error);assert.deepEqual(data,receipt);
   });
   await check('two independent clients redeem concurrently: exactly one succeeds',async()=>{
-    const responses=await Promise.all([rpc(first,'redeem_and_draw',{p_code:seeds[1].code}),rpc(second,'redeem_and_draw',{p_code:seeds[1].code})]);
+    const responses=await Promise.all([rpc(first,'redeem_and_draw',{p_code:seeds[1].code, ...testProfile }),rpc(second,'redeem_and_draw',{p_code:seeds[1].code, ...testProfile })]);
     assert.equal(responses.filter(r=>!r.error).length,1);
     assert.equal(responses.filter(r=>r.error && /CODE_USED/.test(r.error.message)).length,1);
     const winner=responses.find(r=>!r.error).data;

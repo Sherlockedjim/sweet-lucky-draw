@@ -1,3 +1,5 @@
+import { isCompleteProfile, safeProfile, type ParticipantProfile } from './participant';
+
 export const PRIZES = ['蛋糕', '奶茶', '小吃'] as const;
 export const HAPPY_MESSAGE = '送你一天的开心～' as const;
 export type Prize = typeof PRIZES[number] | typeof HAPPY_MESSAGE;
@@ -36,7 +38,7 @@ export function revealOrder(prize: Prize, selected: number): Prize[] {
   return rest;
 }
 
-export interface DrawResult { id: string; prize: Prize; created_at: string; }
+export interface DrawResult { id: string; prize: Prize; created_at: string; participant?: ParticipantProfile | null; }
 export interface Invite { id: string; code: string; created_at: string; used_at: string | null; is_used: boolean; }
 export interface DrawRecord extends DrawResult { code: string; }
 
@@ -47,7 +49,8 @@ export function parseDraw(value: unknown): DrawResult {
   if (typeof r.id !== 'string' || !BOX_CONTENTS.includes(r.prize as Prize) || typeof r.created_at !== 'string' || Number.isNaN(Date.parse(r.created_at))) {
     throw new Error('INVALID_SERVER_RESULT');
   }
-  return { id: r.id, prize: r.prize as Prize, created_at: r.created_at };
+  if (r.participant != null && !isCompleteProfile(safeProfile(r.participant))) throw new Error('INVALID_SERVER_RESULT');
+  return { id: r.id, prize: r.prize as Prize, created_at: r.created_at, ...(r.participant != null ? { participant: safeProfile(r.participant) } : {}) };
 }
 
 export function formatTime(date: string | null): string {
@@ -76,6 +79,8 @@ export function friendlyError(error: unknown): string {
   const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? '');
   if (/INVALID_CODE|CODE_NOT_FOUND/i.test(message)) return '这个邀请码暂时找不到，请核对后再试一次。';
   if (/CODE_USED/i.test(message)) return '这个邀请码已经拆过盲盒了，每个邀请码只能使用一次。';
+  if (/PROFILE_REQUIRED|INVALID_PROFILE/i.test(message)) return '请填写昵称并选择有效头像后重试；如仍有提示，请刷新页面。';
+  if (/DRAW_NOT_FOUND/i.test(message)) return '这张邀请码还没有抽奖记录，暂时不能补充资料。';
   if (/NOT_ADMIN|permission denied|42501/i.test(message)) return '当前账号没有管理员权限，请联系活动管理员。';
   if (/Invalid login credentials|invalid_credentials/i.test(message)) return '邮箱或密码不正确，请核对后重试。';
   if (/RATE_LIMIT|too many requests/i.test(message)) return '操作有些频繁，请稍等片刻再试。';

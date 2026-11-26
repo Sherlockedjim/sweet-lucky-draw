@@ -2,7 +2,7 @@
 
 浅鹅黄色的甜品盲盒抽奖屋。React + TypeScript + Vite，Supabase Auth / PostgreSQL RPC，GitHub Pages 静态部署。
 
-**当前版本（2026-11-26）：六礼盒抽奖，须先填写昵称、选择头像，再使用邀请码；结果页展示昵称和头像。92 项本地测试、构建和凭据扫描通过。昵称头像仅随最近一份回执保存在当前浏览器；本版采用手动填写，未接入微信授权。**
+**当前版本（2026-11-26）：六礼盒抽奖，须先填写昵称、选择头像，再使用邀请码；结果页展示昵称和头像。114 项本地测试、构建和凭据扫描通过。昵称头像随中奖记录保存在 Supabase，后台展示并支持昵称搜索；本版采用手动填写，未接入微信授权。**
 
 用户网址：[甜甜抽奖屋](https://sherlockedjim.github.io/sweet-lucky-draw/) · 管理员网址：[管理后台](https://sherlockedjim.github.io/sweet-lucky-draw/#/admin) · [GitHub 源码](https://github.com/Sherlockedjim/sweet-lucky-draw)。
 
@@ -29,8 +29,8 @@ npm run dev
 
 - 8 位数字/大写字母邀请码，选择六只盲盒之一或随机挑选；三种实物各占 1/6，三个开心空盒合计占 1/2。
 - 空盒揭晓显示“送你一天的开心～”，使用笑脸太阳插画，保存结果并消耗该邀请码，刷新可恢复。
-- 昵称与头像均为抽奖前必填；缺任一项、昵称只有空白或图片正在处理时，邀请码及礼盒入口锁定。清空资料后重新锁定。头像在浏览器居中裁剪为 256×256 JPEG。抽奖结果页可展示、编辑和清除资料，同一浏览器刷新后恢复。
-- 个人展示资料与回执编号绑定，仅在本机保存，不进入 Supabase、后台名单或 CSV；换设备不会同步。抽奖仍只向 RPC 提交邀请码。
+- 昵称与头像均为抽奖前必填；缺任一项、昵称只有空白或图片正在处理时，邀请码及礼盒入口锁定。清空资料后重新锁定。头像在浏览器居中裁剪为 256×256 JPEG。结果页展示已保存的资料，持原邀请码可跨设备恢复。
+- 昵称、头像与奖品在同一事务中保存，后台中奖记录展示头像和昵称；CSV 包含昵称和头像保存状态。历史缺失显示“历史未记录”，参与者可凭原邀请码补填一次。
 - 奖品由 PostgreSQL 决定；前端随机排列外观和未选中的奖品，不传入可操纵的奖品参数。
 - 同一邀请码由行锁和唯一索引保护；核销和中奖记录写入在同一事务中。
 - 请求超时后先查已有结果，刷新后也从数据库恢复，避免自动重复提交。
@@ -54,11 +54,14 @@ npm run dev
 
 | RPC | 调用方 | 返回 |
 | --- | --- | --- |
-| `redeem_and_draw(p_code text)` | anon / authenticated | `{ id, prize, created_at }` |
+| `redeem_and_draw(p_code text,p_nickname text,p_avatar text)` | anon / authenticated | `{ id, prize, created_at, participant }` |
 | `get_draw_result(p_code text)` | anon / authenticated | 相同结果，尚未抽取则 `null` |
+| `save_draw_profile(p_code text,p_nickname text,p_avatar text)` | 持有原邀请码者 | 仅为历史空资料补填，返回相同回执 |
 | `admin_generate_codes(p_count integer)` | admin_users 内的 authenticated | 邀请码对象数组 |
 | `admin_list_invites()` | 同上 | `{ id, code, is_used, created_at, used_at }[]`（code 为隐藏前 4 位的历史号码） |
-| `admin_list_draws()` | 同上 | `{ id, code, prize, created_at }[]`（code 为隐藏前 4 位的历史号码） |
+| `admin_list_draws()` | 同上 | `{ id, code, prize, created_at, participant }[]`（code 为隐藏前 4 位的历史号码） |
+
+昵称头像入库增量迁移：`supabase/migrations/20261126064040_persist_participant_profiles.sql`。保留历史记录；详情见 `docs/PROFILE-RECORDS.md`。旧的一参数抽奖实现不再对 API 角色开放。
 
 ## 验证与部署
 

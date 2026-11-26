@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({ getSession: vi.fn(), getUser: vi.fn(), signIn:
 vi.mock('../src/lib/supabase', () => ({ configured: true, supabase: { auth: { getSession: mocks.getSession, getUser: mocks.getUser, signInWithPassword: mocks.signIn, signOut: mocks.signOut, onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }) } } }));
 vi.mock('../src/lib/api', () => ({ listInvites: mocks.listInvites, listDraws: mocks.listDraws, generateCodes: mocks.generate, recover: mocks.recover }));
 import AdminPage from '../src/pages/AdminPage';
+import * as domain from '../src/lib/domain';
 
 const invite = { id: 'invite-id', code: 'ABCD1234', created_at: '2026-11-24T08:00:00Z', used_at: null, is_used: false };
 beforeEach(() => {
@@ -26,6 +27,28 @@ async function login() {
 }
 
 describe('admin session and permissions', () => {
+  it('shows participant avatars and names, labels historical gaps, and searches by nickname',async()=>{
+    const avatar='data:image/jpeg;base64,/9j/2Q==';
+    mocks.listDraws.mockResolvedValue([
+      {id:'new-profile-record',code:'••••1234',prize:'奶茶',created_at:invite.created_at,participant:{nickname:'Alice 云朵',avatar}},
+      {id:'historical-record',code:'••••5678',prize:'蛋糕',created_at:invite.created_at,participant:null},
+    ]);
+    render(<AdminPage/>); await login(); await screen.findByText('今天，也在派送快乐。');
+    fireEvent.click(screen.getByRole('tab',{name:/中奖记录/}));
+    expect(screen.getByRole('columnheader',{name:'头像 / 昵称'})).toBeVisible();
+    expect(screen.getByAltText('Alice 云朵的头像')).toHaveAttribute('src',avatar);
+    expect(screen.getByText('历史未记录')).toBeVisible();
+    fireEvent.change(screen.getByLabelText('搜索邀请码或奖品'),{target:{value:'alice'}});
+    expect(screen.getByText('Alice 云朵')).toBeVisible();
+    expect(screen.queryByText('historical-record')).not.toBeInTheDocument();
+    const download=vi.spyOn(domain,'downloadCsv').mockImplementation(()=>{});
+    fireEvent.click(screen.getByRole('button',{name:'导出 CSV'}));
+    expect(download).toHaveBeenCalledWith('sweet-draw-records.csv',expect.arrayContaining(['昵称','头像状态']),[['Alice 云朵','已保存','••••1234','奶茶',expect.any(String),'new-profile-record']]);
+    fireEvent.click(screen.getByRole('button',{name:'退出登录'}));
+    expect(await screen.findByRole('button',{name:'登录管理后台'})).toBeVisible();
+    expect(screen.queryByText('Alice 云朵')).not.toBeInTheDocument();
+    expect(screen.queryByAltText('Alice 云朵的头像')).not.toBeInTheDocument();
+  });
   it('shows no management data before authorization', async () => {
     render(<AdminPage/>);
     await screen.findByRole('button', { name: '登录管理后台' });

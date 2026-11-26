@@ -1,16 +1,17 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ draw: vi.fn(), recover: vi.fn(), pending: '', remember: vi.fn(), forget: vi.fn(), prepareAvatar: vi.fn() }));
+const mocks = vi.hoisted(() => ({ draw: vi.fn(), recover: vi.fn(), pending: '', remember: vi.fn(), forget: vi.fn(), prepareAvatar: vi.fn(), saveProfile: vi.fn() }));
 vi.mock('../src/lib/supabase', () => ({ configured: true }));
-vi.mock('../src/lib/api', () => ({ draw: mocks.draw, recover: mocks.recover, readPendingCode: () => mocks.pending, rememberCode: mocks.remember, forgetCode: mocks.forget }));
+vi.mock('../src/lib/api', () => ({ draw: mocks.draw, recover: mocks.recover, saveDrawProfile: mocks.saveProfile, readPendingCode: () => mocks.pending, rememberCode: mocks.remember, forgetCode: mocks.forget }));
 vi.mock('../src/lib/participant', async importOriginal => ({ ...await importOriginal<typeof import('../src/lib/participant')>(), prepareAvatar: mocks.prepareAvatar }));
 import DrawPage from '../src/pages/DrawPage';
 import { HAPPY_MESSAGE } from '../src/lib/domain';
 import { PROFILE_STORAGE_KEY, saveReceiptProfile } from '../src/lib/participant';
 
-const award = { id: 'f85d6a52-3211-4be8-a1cd-24a56057420a', prize: '奶茶', created_at: '2026-11-24T08:00:00Z' };
 const avatar = 'data:image/jpeg;base64,/9j/2Q==';
+const legacyAward = { id: 'f85d6a52-3211-4be8-a1cd-24a56057420a', prize: '奶茶', created_at: '2026-11-24T08:00:00Z' };
+const award = { ...legacyAward, participant: { nickname: '云朵同学', avatar } };
 const choose = () => screen.getByRole('button', { name: '选择第 1 个幸运盲盒' });
 async function uploadAvatar() {
   fireEvent.change(screen.getByLabelText('头像图片文件'), { target: { files: [new File(['photo'], 'avatar.jpg', { type: 'image/jpeg' })] } });
@@ -24,7 +25,7 @@ async function enterCode(code = 'ABCD1234') {
   fireEvent.click(screen.getByRole('button', { name: /开启好运/ }));
 }
 
-beforeEach(() => { localStorage.clear(); mocks.pending = ''; mocks.draw.mockReset(); mocks.recover.mockReset(); mocks.remember.mockReset(); mocks.forget.mockReset(); mocks.prepareAvatar.mockReset().mockResolvedValue(avatar); });
+beforeEach(() => { localStorage.clear(); mocks.pending = ''; mocks.draw.mockReset(); mocks.recover.mockReset(); mocks.saveProfile.mockReset(); mocks.remember.mockReset(); mocks.forget.mockReset(); mocks.prepareAvatar.mockReset().mockResolvedValue(avatar); });
 
 describe('draw user flow', () => {
   it('requires both nickname and avatar before accepting an invitation, including direct form submission', () => {
@@ -102,7 +103,7 @@ describe('draw user flow', () => {
     const button = choose();
     fireEvent.click(button); fireEvent.click(button);
     expect(mocks.draw).toHaveBeenCalledTimes(1);
-    expect(mocks.draw).toHaveBeenCalledWith('ABCD1234');
+    expect(mocks.draw).toHaveBeenCalledWith('ABCD1234', award.participant);
     expect(mocks.remember).toHaveBeenCalledWith('ABCD1234');
     await act(async () => resolve(award));
     expect(await screen.findByRole('heading', { name: /恭喜你，抽中了奶茶/ })).toBeVisible();
@@ -168,20 +169,21 @@ describe('draw user flow', () => {
     expect(screen.getByLabelText('本次盲盒揭晓').children).toHaveLength(6);
     expect(mocks.draw).not.toHaveBeenCalled();
   });
-  it('shows the required nickname and avatar on the result while sending only the code to the server',async()=>{
+  it('shows the required nickname and avatar on the result and sends the complete profile with the code',async()=>{
     mocks.draw.mockResolvedValue(award);
     render(<DrawPage/>);
     fireEvent.change(screen.getByLabelText('昵称'),{target:{value:'云朵同学'}});
     await enterCode(); fireEvent.click(choose());
     expect(await screen.findByRole('group',{name:'结果页个人资料'})).toHaveTextContent('云朵同学');
     expect(within(screen.getByRole('group',{name:'结果页个人资料'})).getByAltText('云朵同学的头像')).toHaveAttribute('src',avatar);
-    expect(mocks.draw).toHaveBeenCalledWith('ABCD1234');
-    expect(JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY)!)).toMatchObject({receiptId:award.id,profile:{nickname:'云朵同学'}});
+    expect(mocks.draw).toHaveBeenCalledWith('ABCD1234', award.participant);
+    expect(localStorage.getItem(PROFILE_STORAGE_KEY)).toBeNull();
+    expect(screen.getByText('昵称与头像已随中奖记录保存。')).toBeVisible();
   });
-  it('restores the matching avatar and nickname when recovering a receipt',async()=>{
+  it('offers the matching old browser profile for explicit historical backfill',async()=>{
     const avatar='data:image/jpeg;base64,/9j/2Q==';
     saveReceiptProfile(award.id,{nickname:'云朵同学',avatar});
-    mocks.pending='ABCD1234';mocks.recover.mockResolvedValue(award);
+    mocks.pending='ABCD1234';mocks.recover.mockResolvedValue(legacyAward);
     render(<DrawPage/>);
     expect(await screen.findByRole('group',{name:'结果页个人资料'})).toHaveTextContent('云朵同学');
     expect(within(screen.getByRole('group',{name:'结果页个人资料'})).getByAltText('云朵同学的头像')).toHaveAttribute('src',avatar);
@@ -189,7 +191,7 @@ describe('draw user flow', () => {
   });
   it('does not attach another receipts personal details to a recovered result',async()=>{
     saveReceiptProfile('other-receipt',{nickname:'其他参与者',avatar:null});
-    mocks.pending='ABCD1234';mocks.recover.mockResolvedValue(award);
+    mocks.pending='ABCD1234';mocks.recover.mockResolvedValue(legacyAward);
     render(<DrawPage/>);
     await screen.findByText(award.id);
     expect(screen.queryByRole('group',{name:'结果页个人资料'})).not.toBeInTheDocument();
@@ -201,7 +203,39 @@ describe('draw user flow', () => {
     fireEvent.change(screen.getByLabelText('昵称'),{target:{value:'云朵同学'}});
     await enterCode();fireEvent.click(choose());
     expect(await screen.findByRole('heading',{name:/恭喜你，抽中了奶茶/})).toBeVisible();
-    expect(await screen.findByText(/浏览器未能保存本次个人资料修改/)).toBeVisible();
+    expect(screen.getByText('昵称与头像已随中奖记录保存。')).toBeVisible();
     expect(mocks.draw).toHaveBeenCalledTimes(1);
   });
+  it('restores server profile on another browser without trusting older local details',async()=>{
+    saveReceiptProfile(award.id,{nickname:'本地旧名字',avatar});
+    mocks.pending='ABCD1234'; mocks.recover.mockResolvedValue(award);
+    render(<DrawPage/>);
+    expect(await screen.findByRole('group',{name:'结果页个人资料'})).toHaveTextContent('云朵同学');
+    expect(screen.queryByText('本地旧名字')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'清除资料'})).not.toBeInTheDocument();
+    expect(mocks.draw).not.toHaveBeenCalled();
+  });
+  it('saves a historical profile only after explicit submission without another draw',async()=>{
+    mocks.pending='ABCD1234'; mocks.recover.mockResolvedValue(legacyAward); mocks.saveProfile.mockResolvedValue(award);
+    render(<DrawPage/>);
+    const save=await screen.findByRole('button',{name:'补充到中奖记录'});
+    expect(save).toBeDisabled(); expect(mocks.saveProfile).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('昵称'),{target:{value:'云朵同学'}}); await uploadAvatar();
+    fireEvent.click(save);
+    expect(await screen.findByText('昵称与头像已随中奖记录保存。')).toBeVisible();
+    expect(mocks.saveProfile).toHaveBeenCalledWith('ABCD1234',award.participant);
+    expect(screen.getByText(award.id)).toBeVisible();
+    expect(mocks.draw).not.toHaveBeenCalled();
+  });
+  it('keeps the old result and retry form if profile backfill is not confirmed',async()=>{
+    mocks.pending='ABCD1234'; mocks.recover.mockResolvedValue(legacyAward); mocks.saveProfile.mockRejectedValue(new Error('Failed to fetch'));
+    render(<DrawPage/>); await screen.findByText(award.id);
+    fireEvent.change(screen.getByLabelText('昵称'),{target:{value:'云朵同学'}}); await uploadAvatar();
+    fireEvent.click(screen.getByRole('button',{name:'补充到中奖记录'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('网络');
+    expect(screen.getByText(award.id)).toBeVisible();
+    expect(screen.getByRole('button',{name:'补充到中奖记录'})).toBeEnabled();
+    expect(mocks.draw).not.toHaveBeenCalled();
+  });
+
 });

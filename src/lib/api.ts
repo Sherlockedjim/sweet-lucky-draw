@@ -1,7 +1,14 @@
 import { rpc } from './supabase';
 import { parseDraw, type DrawRecord, type Invite } from './domain';
+import { isCompleteProfile, safeProfile, type ParticipantProfile } from './participant';
 
-export const draw = async (code: string) => parseDraw(await rpc('redeem_and_draw', { p_code: code }));
+const profileParams = (profile: ParticipantProfile) => {
+  const clean = safeProfile(profile);
+  if (!isCompleteProfile(clean)) throw new Error('PROFILE_REQUIRED');
+  return { p_nickname: clean.nickname, p_avatar: clean.avatar };
+};
+export const draw = async (code: string, profile: ParticipantProfile) => parseDraw(await rpc('redeem_and_draw', { p_code: code, ...profileParams(profile) }));
+export const saveDrawProfile = async (code: string, profile: ParticipantProfile) => parseDraw(await rpc('save_draw_profile', { p_code: code, ...profileParams(profile) }));
 export const recover = async (code: string) => {
   const result = await rpc<unknown>('get_draw_result', { p_code: code });
   if (result === null || (Array.isArray(result) && result.length === 0)) return null;

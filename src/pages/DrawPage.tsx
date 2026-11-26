@@ -5,10 +5,10 @@ import { GiftArt, PrizeArt } from '../components/Artwork';
 import { Confetti } from '../components/Confetti';
 import { useDialogFocus } from '../components/useDialogFocus';
 import { ParticipantEditor, RecipientBadge } from '../components/ParticipantProfile';
-import { draw, recover, readPendingCode, rememberCode, forgetCode } from '../lib/api';
+import { draw, recover, saveDrawProfile, readPendingCode, rememberCode, forgetCode } from '../lib/api';
 import { configured } from '../lib/supabase';
 import { BOX_CONTENTS, HAPPY_MESSAGE, friendlyError, formatTime, normalizeCode, PRIZES, randomInt, revealOrder, shuffle, validCode, type DrawResult, type Prize } from '../lib/domain';
-import { clearReceiptProfile, emptyProfile, isCompleteProfile, readReceiptProfile, safeProfile, saveReceiptProfile, type ParticipantProfile } from '../lib/participant';
+import { clearReceiptProfile, emptyProfile, isCompleteProfile, readReceiptProfile, safeProfile, type ParticipantProfile } from '../lib/participant';
 
 const captions = { '蛋糕': ['一口柔软，满分甜蜜', '把生活切成小块，每一块都甜甜的。'], '奶茶': ['快乐，当然要加满', '今天的快乐，从第一颗珍珠开始。'], '小吃': ['咔嚓一下，好心情', '嘴巴有点忙，烦恼先放一旁。'], [HAPPY_MESSAGE]: ['收下一份好心情', '把烦恼轻轻放下，愿你今天嘴角一直向上。'] };
 const boxTitles = ['心动一下', '好运加倍', '甜蜜出发', '装好快乐', '今天很棒', '给你欢喜'];
@@ -26,7 +26,6 @@ export default function DrawPage() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [profile, setProfile] = useState(emptyProfile);
   const [profileBusy, setProfileBusy] = useState(false);
-  const [profileSaved, setProfileSaved] = useState(true);
   const profileReady = isCompleteProfile(profile);
   const [boxOrder] = useState(() => shuffle([0, 1, 2, 0, 1, 2]));
   const [shelf] = useState(() => shuffle(PRIZES));
@@ -42,7 +41,7 @@ export default function DrawPage() {
     setCode(pending);
     recover(pending).then(value => {
       if (!current) return;
-      if (value) { setProfile(readReceiptProfile(value.id) ?? emptyProfile()); setResult(value); setSelected(1); setRevealed(revealOrder(value.prize, 1)); }
+      if (value) { setProfile(value.participant ?? readReceiptProfile(value.id) ?? emptyProfile()); setResult(value); setSelected(1); setRevealed(revealOrder(value.prize, 1)); }
       else setUncertain(false);
     }).catch(e => { if (current) { setError(friendlyError(e)); setUncertain(true); } })
       .finally(() => { if (current) setRecovering(false); });
@@ -56,8 +55,8 @@ export default function DrawPage() {
   }, [burst]);
 
   useEffect(() => {
-    if (result) setProfileSaved(saveReceiptProfile(result.id, profile));
-  }, [result, profile]);
+    if (result?.participant) clearReceiptProfile();
+  }, [result]);
 
   function unlock(e: FormEvent) {
     e.preventDefault();
@@ -76,16 +75,16 @@ export default function DrawPage() {
     lock.current = true; setBusy(true); setError(''); setSelected(index);
     rememberCode(code);
     try {
-      const award = await draw(code);
-      setProfile(participant); setRevealed(revealOrder(award.prize, index)); setResult(award); setBurst(true);
+      const award = await draw(code, participant);
+      setProfile(award.participant ?? participant); setRevealed(revealOrder(award.prize, index)); setResult(award); setBurst(true);
       setTimeout(() => resultRef.current?.focus(), 80);
     } catch (e) {
       const message = String((e as { message?: string })?.message || e);
       setError(friendlyError(e));
       // A timeout may have committed on the server. Recover before another mutation.
-      setUncertain(!/INVALID_CODE|CODE_NOT_FOUND/i.test(message));
+      setUncertain(!/INVALID_CODE|CODE_NOT_FOUND|PROFILE_REQUIRED|INVALID_PROFILE/i.test(message));
       setSelected(-1);
-      if (/INVALID_CODE|CODE_NOT_FOUND/i.test(message)) setUnlocked(false);
+      if (/INVALID_CODE|CODE_NOT_FOUND|PROFILE_REQUIRED|INVALID_PROFILE/i.test(message)) setUnlocked(false);
     } finally { setBusy(false); lock.current = false; }
   }
 
@@ -94,7 +93,7 @@ export default function DrawPage() {
     lock.current = true; setBusy(true); setError('');
     try {
       const award = await recover(code);
-      if (award) { setProfile(readReceiptProfile(award.id) ?? profile); setResult(award); setSelected(1); setRevealed(revealOrder(award.prize, 1)); rememberCode(code); }
+      if (award) { setProfile(award.participant ?? readReceiptProfile(award.id) ?? profile); setResult(award); setSelected(1); setRevealed(revealOrder(award.prize, 1)); rememberCode(code); }
       else { setUncertain(false); setError(profileReady ? '暂时没有这张邀请码的中奖记录，可以选择盲盒。' : '暂时没有这张邀请码的中奖记录，请先填写昵称并上传头像。'); setUnlocked(profileReady && !profileBusy); }
     } catch (e) { setError(friendlyError(e)); }
     finally { setBusy(false); lock.current = false; }
@@ -102,13 +101,24 @@ export default function DrawPage() {
 
   function reset() {
     if (busy || recovering || profileBusy) return;
-    clearReceiptProfile(); setProfile(emptyProfile()); setProfileSaved(true);
+    clearReceiptProfile(); setProfile(emptyProfile());
     forgetCode(); setCode(''); setResult(null); setUnlocked(false); setUncertain(false); setSelected(-1); setError(''); setBurst(false);
   }
 
   function updateProfile(value: ParticipantProfile) {
-    setProfile(value); setError('');
+    setProfile(value); if (!uncertain) setError('');
     if (!isCompleteProfile(value)) setUnlocked(false);
+  }
+
+  async function completeHistoricalProfile() {
+    if (!result || result.participant || lock.current || busy || profileBusy || !profileReady || !validCode(code)) return;
+    lock.current = true; setBusy(true); setError('');
+    try {
+      const saved = await saveDrawProfile(code, safeProfile(profile));
+      if (saved.id !== result.id || !saved.participant) throw new Error('INVALID_SERVER_RESULT');
+      setResult(saved); setProfile(saved.participant);
+    } catch (failure) { setError(friendlyError(failure)); }
+    finally { setBusy(false); lock.current = false; }
   }
 
   return <div className="draw-page">
@@ -131,8 +141,8 @@ export default function DrawPage() {
 
         {recovering ? <div className="loading-panel" role="status"><LoaderCircle className="spin"/>正在找回你的甜蜜记录…</div> : result ? <><div className="result-panel" ref={resultRef} tabIndex={-1}>
           <div className="result-art"><PrizeArt prize={result.prize}/><span className="result-star" aria-hidden="true">✦</span></div>
-          <div className={`result-copy ${result.prize === HAPPY_MESSAGE ? 'happy-result' : ''}`}><RecipientBadge profile={profile}/><span className="result-kicker"><CheckCircle2 size={16}/>{result.prize === HAPPY_MESSAGE ? '开心已送达' : '好运已送达'}</span>{result.prize === HAPPY_MESSAGE ? <h3><span>{HAPPY_MESSAGE}</span></h3> : <h3>恭喜你，抽中了<span>{result.prize}！</span></h3>}<p>{captions[result.prize][1]}</p><div className="receipt-meta"><span>抽奖时间 <b>{formatTime(result.created_at)}</b></span><span>记录编号 <code>{result.id}</code></span></div><p className="claim-note">{result.prize === HAPPY_MESSAGE ? '这是一份没有实物奖品的开心礼盒，愿好心情陪你度过今天。' : '请保留这份记录，并联系活动管理员兑换奖品。'}</p><button className="secondary-button" disabled={profileBusy} onClick={reset}><Ticket size={16}/>使用另一个邀请码</button></div>
-        </div><details className="recipient-edit"><summary>编辑昵称与头像</summary><ParticipantEditor value={profile} onChange={setProfile} onBusyChange={setProfileBusy}/></details>{!profileSaved && <p className="profile-save-warning" role="status">浏览器未能保存本次个人资料修改，刷新后可能与当前显示不同；抽奖结果已安全保存。</p>}</> : <>
+          <div className={`result-copy ${result.prize === HAPPY_MESSAGE ? 'happy-result' : ''}`}><RecipientBadge profile={profile}/><span className="result-kicker"><CheckCircle2 size={16}/>{result.prize === HAPPY_MESSAGE ? '开心已送达' : '好运已送达'}</span>{result.prize === HAPPY_MESSAGE ? <h3><span>{HAPPY_MESSAGE}</span></h3> : <h3>恭喜你，抽中了<span>{result.prize}！</span></h3>}<p>{captions[result.prize][1]}</p><div className="receipt-meta"><span>抽奖时间 <b>{formatTime(result.created_at)}</b></span><span>记录编号 <code>{result.id}</code></span></div><p className="claim-note">{result.prize === HAPPY_MESSAGE ? '这是一份没有实物奖品的开心礼盒，愿好心情陪你度过今天。' : '请保留这份记录，并联系活动管理员兑换奖品。'}</p><button className="secondary-button" disabled={busy || profileBusy} onClick={reset}><Ticket size={16}/>使用另一个邀请码</button></div>
+        </div>{result.participant ? <p className="profile-record-note" role="status"><ShieldCheck size={14}/>昵称与头像已随中奖记录保存。</p> : <section className="historical-profile" aria-label="补充历史抽奖资料"><p>这份历史记录尚未保存昵称与头像。请核对资料后补充，管理员就能在中奖记录中看到你。</p><ParticipantEditor value={profile} onChange={setProfile} onBusyChange={setProfileBusy} disabled={busy} required/><button className="primary-button" disabled={busy || profileBusy || !profileReady} onClick={() => void completeHistoricalProfile()}>{busy ? <><LoaderCircle size={16} className="spin"/>正在保存…</> : '补充到中奖记录'}</button><small>仅补充资料，奖品与抽奖时间不变；保存后不可自行覆盖。</small></section>}</> : <>
           <ParticipantEditor value={profile} onChange={updateProfile} onBusyChange={setProfileBusy} disabled={busy} required/>
           <form className={`invite-form ${unlocked ? 'is-unlocked' : ''}`} onSubmit={unlock}>
             <label htmlFor="invite-code"><Ticket size={18}/> 你的专属邀请码</label>
@@ -154,6 +164,6 @@ export default function DrawPage() {
       <section className="prize-section" aria-labelledby="prizes-title"><div className="prize-heading"><span className="heading-line"/><div><span className="section-eyebrow">GOOD THINGS ARE WAITING</span><h2 id="prizes-title">今日份甜蜜清单</h2></div><span className="heading-line"/></div><div className="prize-shelf">{shelf.map(p => <article className="prize-item" key={p}><div className={`prize-icon prize-icon-${PRIZES.indexOf(p)}`}><PrizeArt prize={p}/></div><div><h3>{p}<span>{['SWEET TREAT', 'HAPPY SIP', 'CRUNCHY JOY'][PRIZES.indexOf(p)]}</span></h3><p>{captions[p][0]}</p></div></article>)}</div></section>
       <div className="closing-note"><span aria-hidden="true">♡</span> 生活偶尔有点忙，记得给自己一点甜。</div>
     </main><Footer/>
-    {rulesOpen && <div className="modal-overlay" onClick={() => setRulesOpen(false)}><section className="rules-dialog" role="dialog" aria-modal="true" aria-labelledby="rules-title" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Escape') setRulesOpen(false); }}><button className="icon-button dialog-close" aria-label="关闭活动说明" autoFocus onClick={() => setRulesOpen(false)}><X size={20}/></button><span className="dialog-icon"><Gift size={28}/></span><h2 id="rules-title">一点点好运的小约定</h2><ol><li>向活动管理员获取 8 位邀请码。</li><li>先填写昵称并上传头像，再输入邀请码，选择一个盲盒，或让好运帮你挑。</li><li>六个礼盒等概率：蛋糕、奶茶、小吃各一个，另有三个空礼盒写着“送你一天的开心～”。三种实物各占 1/6，开心空盒合计占 1/2，由服务端决定并保存结果。</li><li>每个邀请码只能抽取一次，抽奖与记录保存同步完成。</li><li>刷新页面会找回上次结果。换设备时，可重新填写原邀请码，再点击找回结果。</li><li>抽中蛋糕、奶茶或小吃时，请凭记录编号联系活动管理员兑换。</li></ol><button className="primary-button" onClick={() => setRulesOpen(false)}>知道啦，去收下好运 <ChevronDown size={17}/></button></section></div>}
+    {rulesOpen && <div className="modal-overlay" onClick={() => setRulesOpen(false)}><section className="rules-dialog" role="dialog" aria-modal="true" aria-labelledby="rules-title" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Escape') setRulesOpen(false); }}><button className="icon-button dialog-close" aria-label="关闭活动说明" autoFocus onClick={() => setRulesOpen(false)}><X size={20}/></button><span className="dialog-icon"><Gift size={28}/></span><h2 id="rules-title">一点点好运的小约定</h2><ol><li>向活动管理员获取 8 位邀请码。</li><li>先填写昵称并上传头像，再输入邀请码，选择一个盲盒，或让好运帮你挑。资料将与抽奖结果一起保存，供管理员核对。</li><li>六个礼盒等概率：蛋糕、奶茶、小吃各一个，另有三个空礼盒写着“送你一天的开心～”。三种实物各占 1/6，开心空盒合计占 1/2，由服务端决定并保存结果。</li><li>每个邀请码只能抽取一次，抽奖与记录保存同步完成。</li><li>刷新页面会找回上次结果。换设备时，可重新填写原邀请码，再点击找回结果。</li><li>抽中蛋糕、奶茶或小吃时，请凭记录编号联系活动管理员兑换。</li></ol><button className="primary-button" onClick={() => setRulesOpen(false)}>知道啦，去收下好运 <ChevronDown size={17}/></button></section></div>}
   </div>;
 }

@@ -3,7 +3,9 @@
 import { createClient } from '@supabase/supabase-js';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 
+const testProfile = { p_nickname: '自动联调测试', p_avatar: 'data:image/jpeg;base64,' + (await readFile(new URL('../tests/fixtures/avatar.jpg', import.meta.url))).toString('base64') };
 const url = process.env.VITE_SUPABASE_URL;
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const keyIsPublic = value => {
@@ -31,7 +33,7 @@ for (const method of ['admin_list_invites', 'admin_list_draws', 'admin_generate_
 }
 for (const code of ['BAD', 'abcd1234', 'ABCD!123']) {
   await test('malformed invitation rejected', async () => {
-    const { error } = await call(anonA, 'redeem_and_draw', { p_code: code });
+    const { error } = await call(anonA, 'redeem_and_draw', { p_code: code , ...testProfile });
     assert(error && /INVALID_CODE/.test(error.message), 'Expected explicit validation rejection');
   });
 }
@@ -58,7 +60,7 @@ if (process.env.TEST_ADMIN_EMAIL && process.env.TEST_ADMIN_PASSWORD) {
     await test('well-formed nonexistent invitation rejected', async () => {
       let code;
       do { code = randomBytes(4).toString('hex').toUpperCase(); } while (invites.some(r => r.code === code));
-      const { error } = await call(anonA, 'redeem_and_draw', { p_code: code });
+      const { error } = await call(anonA, 'redeem_and_draw', { p_code: code , ...testProfile });
       assert(error && /INVALID_CODE/.test(error.message));
     });
     for (const count of [0, 501]) await test('invalid batch size rejected', async () => {
@@ -75,11 +77,11 @@ if (process.env.TEST_ADMIN_EMAIL && process.env.TEST_ADMIN_PASSWORD) {
     if (batch) {
       let award;
       await test('correct invitation redeemed once', async () => {
-        const { data, error } = await call(anonA, 'redeem_and_draw', { p_code: batch[0].code });
+        const { data, error } = await call(anonA, 'redeem_and_draw', { p_code: batch[0].code , ...testProfile });
         assert.ifError(error); assert(['蛋糕', '奶茶', '小吃', '送你一天的开心～'].includes(data.prize)); award = data;
       });
       await test('used invitation rejected', async () => {
-        const { error } = await call(anonB, 'redeem_and_draw', { p_code: batch[0].code });
+        const { error } = await call(anonB, 'redeem_and_draw', { p_code: batch[0].code , ...testProfile });
         assert(error && /CODE_USED/.test(error.message));
       });
       await test('result survives refresh / a new browser session', async () => {
@@ -87,7 +89,7 @@ if (process.env.TEST_ADMIN_EMAIL && process.env.TEST_ADMIN_PASSWORD) {
         assert.ifError(error); assert.deepEqual(data, award);
       });
       await test('two independent clients redeem concurrently: exactly one wins', async () => {
-        const responses = await Promise.all([call(anonA, 'redeem_and_draw', { p_code: batch[1].code }), call(anonB, 'redeem_and_draw', { p_code: batch[1].code })]);
+        const responses = await Promise.all([call(anonA, 'redeem_and_draw', { p_code: batch[1].code , ...testProfile }), call(anonB, 'redeem_and_draw', { p_code: batch[1].code , ...testProfile })]);
         assert.equal(responses.filter(r => !r.error).length, 1);
         assert.equal(responses.filter(r => r.error && /CODE_USED/.test(r.error.message)).length, 1);
         const records = await call(admin, 'admin_list_draws'); assert.ifError(records.error);

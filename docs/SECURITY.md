@@ -37,6 +37,10 @@ Supabase CLI 与 GitHub CLI 用于部署的凭据保存在本机安全配置/密
 
 2026-11-26 六礼盒变更只增加私有槽位映射与 `happy` 结果，不扩大公共 API 权限。检查仍提示人工审查公开 SECURITY DEFINER RPC，以及表开启 RLS 但无直接访问策略（本项目使用禁止直接表访问、由 RPC 提供受控入口的设计）。参考：[公开函数执行提示](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable)、[RLS 无策略提示](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)、[泄露密码保护](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)。
 
-昵称与头像在网站抽奖流程中必填，页面按钮和提交处理函数均校验完整性；资料清空后重新锁定。该要求属于前端交互校验，不构成服务端身份认证，也不改变持有邀请码即可调用 RPC 的权限模型。昵称与头像只用于本机展示，不新增数据库字段、Storage 桶或上传接口，也不改变 RPC 参数。图片同时检查大小、MIME 和文件签名；仅支持 JPEG/PNG/WebP，重新绘制为 256×256 JPEG 后才保存。缓存只接受有长度上限的 JPEG data URL，昵称通过 React 文本渲染。读取时必须匹配服务器返回的回执编号，避免将另一份回执的资料混入。存储失败只提示个人资料未保存，不改变抽奖结果或触发重复核销。
+昵称与头像同时在前端和数据库抽奖入口校验。资料与邀请码核销、奖品记录一起提交，任一失败均回滚。头像由前端裁剪重编码为 JPEG；数据库限制 120000 字节并检查 JPEG 格式、Base64 和首尾标记，拒绝外链及 SVG。昵称由 React 文本渲染；前端最多 24 个字素，数据库另设 256 码点及 1024 字节上限兼容组合表情，拒绝控制字符和空白内容。
+
+新字段继续受原表 RLS 与撤销直接读写权限保护；管理员名单 RPC 逐次检查 `auth.uid()`。持有精确邀请码的人可查询该码的回执和资料，因此邀请码仍应私下发放。历史补填只允许空资料首次写入，行锁防止并发改写；资料已保存则原样返回。未新增公共 Storage 桶，未使用服务端私密密钥。旧一参数抽奖函数归档到无 API 权限的 schema，避免绕过采集要求。
+
+旧本机缓存只用于历史补填表单预填，不自动上传；页面说明昵称头像将保存供管理员核对。该功能仍为手动展示信息，不构成微信或真实身份认证。新数据不再依赖 localStorage 保存个人资料，服务端记录优先，持码恢复可跨设备。具体迁移和权限说明见 PROFILE-RECORDS.md。
 
 依据：[Supabase 函数安全](https://supabase.com/docs/guides/database/functions)、[API 安全](https://supabase.com/docs/guides/api/securing-your-api)、[API key 类型](https://supabase.com/docs/guides/getting-started/api-keys)。

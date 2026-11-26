@@ -4,9 +4,11 @@ import { Brand, Footer } from '../components/Brand';
 import { GiftArt, PrizeArt } from '../components/Artwork';
 import { Confetti } from '../components/Confetti';
 import { useDialogFocus } from '../components/useDialogFocus';
+import { ParticipantEditor, RecipientBadge } from '../components/ParticipantProfile';
 import { draw, recover, readPendingCode, rememberCode, forgetCode } from '../lib/api';
 import { configured } from '../lib/supabase';
 import { BOX_CONTENTS, HAPPY_MESSAGE, friendlyError, formatTime, normalizeCode, PRIZES, randomInt, revealOrder, shuffle, validCode, type DrawResult, type Prize } from '../lib/domain';
+import { clearReceiptProfile, emptyProfile, readReceiptProfile, safeProfile, saveReceiptProfile } from '../lib/participant';
 
 const captions = { '蛋糕': ['一口柔软，满分甜蜜', '把生活切成小块，每一块都甜甜的。'], '奶茶': ['快乐，当然要加满', '今天的快乐，从第一颗珍珠开始。'], '小吃': ['咔嚓一下，好心情', '嘴巴有点忙，烦恼先放一旁。'], [HAPPY_MESSAGE]: ['收下一份好心情', '把烦恼轻轻放下，愿你今天嘴角一直向上。'] };
 const boxTitles = ['心动一下', '好运加倍', '甜蜜出发', '装好快乐', '今天很棒', '给你欢喜'];
@@ -22,6 +24,9 @@ export default function DrawPage() {
   const [selected, setSelected] = useState(-1);
   const [burst, setBurst] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [profile, setProfile] = useState(emptyProfile);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(true);
   const [boxOrder] = useState(() => shuffle([0, 1, 2, 0, 1, 2]));
   const [shelf] = useState(() => shuffle(PRIZES));
   const lock = useRef(false);
@@ -36,7 +41,7 @@ export default function DrawPage() {
     setCode(pending);
     recover(pending).then(value => {
       if (!current) return;
-      if (value) { setResult(value); setSelected(1); setRevealed(revealOrder(value.prize, 1)); }
+      if (value) { setProfile(readReceiptProfile(value.id) ?? emptyProfile()); setResult(value); setSelected(1); setRevealed(revealOrder(value.prize, 1)); }
       else setUncertain(false);
     }).catch(e => { if (current) { setError(friendlyError(e)); setUncertain(true); } })
       .finally(() => { if (current) setRecovering(false); });
@@ -49,6 +54,10 @@ export default function DrawPage() {
     return () => clearTimeout(timer);
   }, [burst]);
 
+  useEffect(() => {
+    if (result) setProfileSaved(saveReceiptProfile(result.id, profile));
+  }, [result, profile]);
+
   function unlock(e: FormEvent) {
     e.preventDefault();
     const value = normalizeCode(code);
@@ -59,12 +68,13 @@ export default function DrawPage() {
   }
 
   async function openBox(index: number) {
-    if (lock.current || !unlocked || result || uncertain || busy || recovering) return;
+    if (lock.current || !unlocked || result || uncertain || busy || recovering || profileBusy) return;
+    const participant = safeProfile(profile);
     lock.current = true; setBusy(true); setError(''); setSelected(index);
     rememberCode(code);
     try {
       const award = await draw(code);
-      setRevealed(revealOrder(award.prize, index)); setResult(award); setBurst(true);
+      setProfile(participant); setRevealed(revealOrder(award.prize, index)); setResult(award); setBurst(true);
       setTimeout(() => resultRef.current?.focus(), 80);
     } catch (e) {
       const message = String((e as { message?: string })?.message || e);
@@ -81,14 +91,15 @@ export default function DrawPage() {
     lock.current = true; setBusy(true); setError('');
     try {
       const award = await recover(code);
-      if (award) { setResult(award); setSelected(1); setRevealed(revealOrder(award.prize, 1)); rememberCode(code); }
+      if (award) { setProfile(readReceiptProfile(award.id) ?? profile); setResult(award); setSelected(1); setRevealed(revealOrder(award.prize, 1)); rememberCode(code); }
       else { setUncertain(false); setError('暂时没有这张邀请码的中奖记录，可以选择盲盒。'); setUnlocked(true); }
     } catch (e) { setError(friendlyError(e)); }
     finally { setBusy(false); lock.current = false; }
   }
 
   function reset() {
-    if (busy || recovering) return;
+    if (busy || recovering || profileBusy) return;
+    clearReceiptProfile(); setProfile(emptyProfile()); setProfileSaved(true);
     forgetCode(); setCode(''); setResult(null); setUnlocked(false); setUncertain(false); setSelected(-1); setError(''); setBurst(false);
   }
 
@@ -110,22 +121,23 @@ export default function DrawPage() {
         <div className="studio-heading"><div><span className="section-eyebrow">YOUR LITTLE LUCKY MOMENT</span><h2 id="studio-title">一份小惊喜，等你来拆 <Sparkles size={21}/></h2></div><span className="edition-tag">SWEET EDITION</span></div>
         <ol className="steps" aria-label="抽奖步骤">{['输入邀请码', '挑选幸运盲盒', '收下小甜蜜'].map((text, i) => <li className={i <= (result ? 2 : unlocked ? 1 : 0) ? 'active' : ''} key={text}><span>{i < (result ? 2 : unlocked ? 1 : 0) ? <Check size={13}/> : `0${i + 1}`}</span>{text}</li>)}</ol>
 
-        {recovering ? <div className="loading-panel" role="status"><LoaderCircle className="spin"/>正在找回你的甜蜜记录…</div> : result ? <div className="result-panel" ref={resultRef} tabIndex={-1}>
+        {recovering ? <div className="loading-panel" role="status"><LoaderCircle className="spin"/>正在找回你的甜蜜记录…</div> : result ? <><div className="result-panel" ref={resultRef} tabIndex={-1}>
           <div className="result-art"><PrizeArt prize={result.prize}/><span className="result-star" aria-hidden="true">✦</span></div>
-          <div className={`result-copy ${result.prize === HAPPY_MESSAGE ? 'happy-result' : ''}`}><span className="result-kicker"><CheckCircle2 size={16}/>{result.prize === HAPPY_MESSAGE ? '开心已送达' : '好运已送达'}</span>{result.prize === HAPPY_MESSAGE ? <h3><span>{HAPPY_MESSAGE}</span></h3> : <h3>恭喜你，抽中了<span>{result.prize}！</span></h3>}<p>{captions[result.prize][1]}</p><div className="receipt-meta"><span>抽奖时间 <b>{formatTime(result.created_at)}</b></span><span>记录编号 <code>{result.id}</code></span></div><p className="claim-note">{result.prize === HAPPY_MESSAGE ? '这是一份没有实物奖品的开心礼盒，愿好心情陪你度过今天。' : '请保留这份记录，并联系活动管理员兑换奖品。'}</p><button className="secondary-button" onClick={reset}><Ticket size={16}/>使用另一个邀请码</button></div>
-        </div> : <>
+          <div className={`result-copy ${result.prize === HAPPY_MESSAGE ? 'happy-result' : ''}`}><RecipientBadge profile={profile}/><span className="result-kicker"><CheckCircle2 size={16}/>{result.prize === HAPPY_MESSAGE ? '开心已送达' : '好运已送达'}</span>{result.prize === HAPPY_MESSAGE ? <h3><span>{HAPPY_MESSAGE}</span></h3> : <h3>恭喜你，抽中了<span>{result.prize}！</span></h3>}<p>{captions[result.prize][1]}</p><div className="receipt-meta"><span>抽奖时间 <b>{formatTime(result.created_at)}</b></span><span>记录编号 <code>{result.id}</code></span></div><p className="claim-note">{result.prize === HAPPY_MESSAGE ? '这是一份没有实物奖品的开心礼盒，愿好心情陪你度过今天。' : '请保留这份记录，并联系活动管理员兑换奖品。'}</p><button className="secondary-button" disabled={profileBusy} onClick={reset}><Ticket size={16}/>使用另一个邀请码</button></div>
+        </div><details className="recipient-edit"><summary>编辑昵称与头像</summary><ParticipantEditor value={profile} onChange={setProfile} onBusyChange={setProfileBusy}/></details>{!profileSaved && <p className="profile-save-warning" role="status">浏览器未能保存本次个人资料修改，刷新后可能与当前显示不同；抽奖结果已安全保存。</p>}</> : <>
           <form className={`invite-form ${unlocked ? 'is-unlocked' : ''}`} onSubmit={unlock}>
             <label htmlFor="invite-code"><Ticket size={18}/> 你的专属邀请码</label>
             <div className="invite-input-row"><div className="input-wrap"><input id="invite-code" value={code} onChange={e => { setCode(e.target.value.toUpperCase()); setError(''); }} placeholder="输入 8 位邀请码" autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={8} disabled={busy || unlocked} aria-describedby="invite-hint" aria-invalid={!!error && !unlocked}/>{unlocked && <CheckCircle2 size={18}/>}</div>{unlocked ? <button type="button" className="edit-code text-button" onClick={() => { setUnlocked(false); setUncertain(false); setError(''); }} disabled={busy}>更换</button> : <button className="primary-button" disabled={busy || !code.trim()}>开启好运 <Sparkles size={17}/></button>}</div>
             <p id="invite-hint">{unlocked ? '邀请码已填写，选一个最有眼缘的盒子吧。' : <><LockKeyhole size={13}/>8 位大写英文字母或数字 · 每个邀请码仅限一次</>}</p>
           </form>
           {!configured && <div className="setup-notice" role="status">活动正在准备中，盲盒很快就来。</div>}
+          <ParticipantEditor value={profile} onChange={setProfile} onBusyChange={setProfileBusy} disabled={busy}/>
           <div className={`boxes ${!unlocked ? 'boxes-locked' : ''} ${busy ? 'boxes-busy' : ''}`} aria-label="选择一个幸运盲盒">
-            {boxOrder.map((tone, i) => <button className={`box-card box-tone-${tone} ${selected === i && busy ? 'box-shaking' : ''}`} key={i} disabled={!configured || !unlocked || busy || uncertain} onClick={() => void openBox(i)} aria-label={`选择第 ${i + 1} 个幸运盲盒`}>
+            {boxOrder.map((tone, i) => <button className={`box-card box-tone-${tone} ${selected === i && busy ? 'box-shaking' : ''}`} key={i} disabled={!configured || !unlocked || busy || uncertain || profileBusy} onClick={() => void openBox(i)} aria-label={`选择第 ${i + 1} 个幸运盲盒`}>
               <span className="box-mini-label">A LITTLE SURPRISE</span><GiftArt tone={tone} open={busy && selected === i}/><span className="box-title">{boxTitles[i]}</span><span className="box-hint">{busy && selected === i ? '好运正在揭晓…' : unlocked ? '就选这个！' : '等你来拆'}</span><span className="box-sticker" aria-hidden="true">{['♡', '✧', '☺'][tone]}</span>
             </button>)}
           </div>
-          <div className="stage-bottom">{busy ? <span role="status"><LoaderCircle size={16} className="spin"/>正在确认你的甜蜜，请稍等…</span> : <><span><ShieldCheck size={15}/>每个邀请码一次机会 · 结果安全保存</span><button className="text-button random-button" disabled={!unlocked || busy || uncertain || !configured} onClick={() => void openBox(randomInt(BOX_CONTENTS.length))}><Sparkles size={15}/>帮我挑一个</button></>}</div>
+          <div className="stage-bottom">{busy ? <span role="status"><LoaderCircle size={16} className="spin"/>正在确认你的甜蜜，请稍等…</span> : <><span><ShieldCheck size={15}/>每个邀请码一次机会 · 结果安全保存</span><button className="text-button random-button" disabled={!unlocked || busy || uncertain || !configured || profileBusy} onClick={() => void openBox(randomInt(BOX_CONTENTS.length))}><Sparkles size={15}/>帮我挑一个</button></>}</div>
         </>}
         {error && <div className="message error-message" role="alert"><span>{error}</span>{uncertain && <button className="secondary-button" disabled={busy} onClick={() => void recoverResult()}><RotateCcw size={15}/>找回抽奖结果</button>}</div>}
         {result && <div className="revealed-row" aria-label="本次盲盒揭晓">{revealed.map((p, i) => <div key={i} className={i === selected ? 'chosen' : ''}><PrizeArt prize={p}/><span>{p}</span>{i === selected && <span className="chosen-label">你的礼盒</span>}</div>)}</div>}

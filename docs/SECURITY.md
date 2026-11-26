@@ -37,4 +37,6 @@ Supabase CLI 与 GitHub CLI 用于部署的凭据保存在本机安全配置/密
 
 2026-11-26 六礼盒变更只增加私有槽位映射与 `happy` 结果，不扩大公共 API 权限。检查仍提示人工审查公开 SECURITY DEFINER RPC，以及表开启 RLS 但无直接访问策略（本项目使用禁止直接表访问、由 RPC 提供受控入口的设计）。参考：[公开函数执行提示](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable)、[RLS 无策略提示](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)、[泄露密码保护](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)。
 
+选填昵称与头像只用于本机展示，不新增数据库字段、Storage 桶或上传接口，也不改变 RPC 参数。图片同时检查大小、MIME 和文件签名；仅支持 JPEG/PNG/WebP，重新绘制为 256×256 JPEG 后才保存。缓存只接受有长度上限的 JPEG data URL，昵称通过 React 文本渲染。读取时必须匹配服务器返回的回执编号，避免将另一份回执的资料混入。存储失败只提示个人资料未保存，不改变抽奖结果或触发重复核销。
+
 依据：[Supabase 函数安全](https://supabase.com/docs/guides/database/functions)、[API 安全](https://supabase.com/docs/guides/api/securing-your-api)、[API key 类型](https://supabase.com/docs/guides/getting-started/api-keys)。
